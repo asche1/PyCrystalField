@@ -1,0 +1,109 @@
+## Point Charge Model
+
+This derivation is based off Hutchings, ''Point Charge Calculations
+of Energy Levels of Magnetic Ions in Crystalline Electric Fields'',
+1964.
+
+
+We begin with Eq. 2.7:
+$$
+V(r,\theta,\phi)=\sum_{n=0}^{\infty}\sum_{\alpha}r^{n}\gamma_{n\alpha}Z_{n\alpha}(\theta,\phi)
+$$
+where $Z_{n\alpha}$ are tesseral harmonics, and 
+\begin{equation}
+\gamma_{n\alpha}=\sum_{j=1}^{k}\frac{4\pi}{(2n+1)}q_{j}\frac{Z_{n\alpha}(\theta_{j},\phi_{j})}{R_{j}^{n+1}}
+\end{equation}
+, summing over $k$ ligands surrounding the central ion. 
+
+Now, we recognize that (according to Hutchings Eq. 5.3): 
+$$V(x,y,z)=\sum_{mn}A_{n}^{m}\frac{1}{-|e|}f_{nm}^{c}(x,y,z)$$
+and according to Eq. (5.5), the Hamiltonian can be written as
+$$
+\mathcal{H}=-|e|\sum_{i}V_{i}(x_{i},y_{i},z_{i})=\sum_{i}\sum_{mn}A_{n}^{m}f_{nm}^{c}(x,y,z)
+$$
+, summing over electrons. Alternatively, we can write the Hamiltonian
+in terms of Stevens Operators (also following eq. 5.5):
+$$
+\mathcal{H}=-|e|\sum_{i}\sum_{n,m}r^{n}\gamma_{nm}Z_{nm}(\theta_{i},\phi_{i})
+$$
+$$
+=\sum_{i}\sum_{n,m}A_{n}^{m}f_{nm}^{c}(x_{i},y_{i},z_{i})=\sum_{n,m}\underbrace{\left[A_{n}^{m}\left\langle r^{n}\right\rangle \theta_{n}\right]}_{B_{n}^{m}}O_{n}^{m}
+$$
+$$ \mathcal{H} =\sum_{n,m} B_{n}^{m}O_{n}^{m} $$
+where $\theta_{n}$ is a multiplicative factor which is dependent
+on the ion ($\theta_{2}=\alpha_{J}$; $\theta_{4}=\beta_{J}$; $\theta_{6}=\gamma_{J}$;
+see Table VI in Hutchings). Now, we solve the equations. 
+We can look up $\left\langle r^{n}\right\rangle \theta_{n}$,
+we just need to find $A_{n}^{m}$.
+
+Because $A_{n}^{m}f_{nm}^{c}(x_{i},y_{i},z_{i})=-|e|r^{n}\gamma_{nm}Z_{nm}(\theta_{i},\phi_{i})$,
+we should be able to find $A_{n}^{m}$. Now it turns out that, according
+to Eq. 5.4 in Hutchings, $C_{nm}\times f_{nm}^{c}(x_{i},y_{i},z_{i})=r^{n}Z_{nm}^{c}(\theta_{i},\phi_{i})$,
+where $C_{nm}$ is a multiplicative factor in front of the Tesseral
+harmonics. Therefore,
+$$
+A_{n}^{m}=-\gamma_{nm}^{c}|e|C_{nm}
+$$
+. A closed-form expression for the constants C is very hard to derive,
+so I just used Mathematica to generate the prefactors to the spherical
+harmonics. They can be found in "TessHarmConsts.txt".
+
+
+
+In the end, we can find the crystal field parameters $B_{n}^{m}$
+with the formula
+$$
+B_{n}^{m}=A_{n}^{m}\left\langle r^{n}\right\rangle \theta_{n}
+$$
+\begin{equation}
+\boxed{B_{n}^{m}=-\gamma_{nm}|e|C_{nm}\left\langle r^{n}\right\rangle \theta_{n}}
+\end{equation}
+We know $|e|$ and the constants $C_{nm}$, we can look up $\theta_{n}$
+in Hutchings, and we can look up $\left\langle r^{n}\right\rangle $
+in the literature. Originally, I looked at Freeman and Watson, Table
+VII (10.1103/PhysRev.127.2058), but found that these values did not
+reproduce the results from literature that I'd found. Now, instead, I use Edvardsson and Klintenberg (see the next section).
+
+### Self-shielding factor
+
+In the original Hutchings article, there is only the radial integral
+that comes into play. Others, in more careful analysis, showed that
+there is a self-sheilding of the 4f electron orbitals by adjacent
+electron shells. The net result is that the radial integral is modified
+by a self-shielding factor:
+$$
+(1-\sigma_{t})\left\langle r^{n}\right\rangle 
+$$
+
+These factors have been calculated and tabulated by Edvardsson and
+Klintenberg. (http://dx.doi.org/10.1016/S0925-8388(98)00309-0)
+
+### Units
+
+The last trick here is the units. We want the Hamiltonian in units
+of meV. $\gamma_{n\alpha}$ is in units of $\frac{e}{\textrm{Å}^{n+1}}$,
+$C_{nm}$ and $\theta_{n}$ are unitless, and $\left\langle r^{n}\right\rangle $
+is in units of $a_{0}^{n}$. This means that $B_{n}^{m}$, in the equation written above, comes out
+in units of $\frac{e^{2}}{\textrm{Å}}$. We want to convert this to
+meV.
+
+To do this, we first recognize that we have to re-write Hutchings
+eq. (II.2) with the proper prefactor for Coulomb's law: $W=\sum_{i}\frac{1}{4\pi\epsilon_{0}}q_{i}V_{i}$. Thus,
+our Hamiltonian becomes
+$$
+\mathcal{H}_{CEF}\,=\sum_{nm}B(exp)_{n}^{m}O_{n}^{m}=\sum_{nm}\frac{1}{4\pi\epsilon_{0}}B(calc)_{n}^{m}O_{n}^{m}.
+$$
+Now $\epsilon_{0}=\frac{e^{2}}{2\alpha hc}$, so we can directly plug this into the equation:
+$$
+B(exp)_{n}^{m}=\frac{1}{4\pi\epsilon_{0}}B(calc)_{n}^{m}=\frac{-1}{4\pi\epsilon_{0}}\gamma_{nm}|e|C_{nm}\left\langle r^{n}\right\rangle \theta_{n}=\frac{-2\alpha hc}{4\pi e^{2}}\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right)e^{2}\frac{a_{0}^{n}}{\textrm{Å}^{n+1}}
+$$
+$$
+=-\alpha\hbar c\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right)\frac{a_{0}^{n}}{\textrm{Å}^{n+1}}=1.43996\times10^{-9}{\rm eV\,m}\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right)\left(0.529177\right)^{n}{\rm \frac{1}{\textrm{Å}}}
+$$
+$$
+=1.43996\times10^{-9}\left(0.529177\right)^{n}\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right){\rm \frac{{\rm eV\,m}}{\textrm{Å}}}\left(\frac{10^{10}{\rm \textrm{Å}}}{{\rm m}}\,\frac{10^{3}{\rm meV}}{{\rm eV}}\right)
+$$
+Thus,
+$$
+B_{n}^{m}=1.43996\times10^{4}\left(0.529177\right)^{n}\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right){\rm meV}
+$$

@@ -2,8 +2,12 @@
 Code to calculate the crystal field Hamiltonian of magnetic ions.
 
 Created by Allen Scheie
+
 scheie@jhu.edu
+
 https://sites.google.com/view/allen-scheie/
+
+
 
 # Description
 

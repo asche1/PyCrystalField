@@ -7,7 +7,7 @@ Created by Allen Scheie
 
    https://sites.google.com/view/allen-scheie/
 
-
+Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
 
 # Description
 

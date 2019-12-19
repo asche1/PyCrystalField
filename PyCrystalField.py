@@ -10,10 +10,12 @@ import sys, os
 from form_factors import RE_FormFactor
 import LatticeClass as lat
 from CreateFitFunction import makeFitFunction
+from numba import njit, jitclass
 
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
+# abspath = os.path.abspath(__file__)
+# dname = os.path.dirname(abspath)
+# os.chdir(dname)
+
 
 
 class Ket():
@@ -99,7 +101,13 @@ class Ket():
 
 
 
+# spec = [
+#     ('O', float32[:,:]),               # a simple scalar field
+#     #('j', float32),
+#     ('m', float32[:]),          # an array field
+# ]
 
+# @jitclass(spec)  # Doesn't work
 class Operator():
     def __init__(self, J):
         self.O = np.zeros((int(2*J+1), int(2*J+1)))
@@ -235,6 +243,21 @@ def StevensOp(J,n,m):
     elif [n,m] == [2,-2]:
         matrix = -0.5j *(Jp**2 - Jm**2)
 
+    elif [n,m] == [3,3]:
+        matrix = 0.5 *(Jp**3 + Jm**3)
+    elif [n,m] == [3,2]:
+        matrix = 0.25 *((Jp**2 + Jm**2)*Jz + Jz*(Jp**2 + Jm**2))
+    elif [n,m] == [3,1]:
+        matrix = 0.25*((Jp + Jm)*(5*Jz**2 - X - 0.5) + (5*Jz**2 - X - 0.5)*(Jp + Jm))
+    elif [n,m] == [3,0]:
+        matrix = 5*Jz**3 - (3*X-1)*Jz
+    elif [n,m] == [3,-1]:
+        matrix = -0.25j*((Jp - Jm)*(5*Jz**2 - X - 0.5) + (5*Jz**2 - X - 0.5)*(Jp - Jm))
+    elif [n,m] == [3,-2]:
+        matrix = -0.25j*(Jz*(Jp**2 - Jm**2) + (Jp**2 - Jm**2)*Jz)
+    elif [n,m] == [3,-3]:
+        matrix = -0.5j *(Jp**3 - Jm**3)
+
     elif [n,m] == [4,4]:
         matrix = 0.5 *(Jp**4 + Jm**4)
     elif [n,m] == [4,3]:
@@ -311,6 +334,7 @@ coef = np.genfromtxt(directory+'TessHarmConsts.txt',delimiter = ',')
 # Make into callable dictionary
 keys=[str(int(c[0]))+','+str(int(c[1])) for c in coef]
 prefac = dict(zip(keys,np.abs(coef[:,2])))
+
 
 def Constant(n,m):
     '''Returns the constant in front of the tesseral harmonic'''
@@ -426,6 +450,7 @@ for line in open(directory+'RadialIntegrals.txt'):
         l = line.split(',')
         radialI[l[0]] = [float(v) for v in l[1:]]
 
+
 def RadialIntegral(ion,n):
     """Returns the radial integral of a rare earth ion plus self-shielding"""
     shielding = 1- radialI[ion][int(n/2-1)]
@@ -433,16 +458,19 @@ def RadialIntegral(ion,n):
 
 ########################################################################
 # Multiplicative factor from Hutchings, Table VII
+
 def PFalpha(L,S,l,halffilled=True):
     aaa = 2.*(2.*l+1.-4.*S)/((2.*l-1)*(2.*l+3.)*(2.*L-1.))
     if halffilled:  return aaa
     else:           return -aaa
+
 
 def PFbeta(L,S,l,halffilled=True):
     bbb = 3.*(2.*l+1.-4.*S)*(-7.*(l-2.*S)*(l-2.*S+1.)+3.*(l-1.)*(l+2.))/\
         ((2.*l-3)*(2.*l-1)*(2.*l+3.)*(2.*l+5.)*(L-1.)*(2.*L-1.)*(2.*L-3.))
     if halffilled:  return bbb
     else:           return -bbb
+
 
 def PFgamma(L,nvalence):
     '''We assume l=6 because only l=6 even has a gamma term.'''
@@ -511,6 +539,8 @@ Jion['Pr3+'] = [1., 5., 4.]
 Jion['Nd3+'] = [1.5, 6., 4.5]
 Jion['Pm3+'] = [2., 6., 4.]
 Jion['Sm3+'] = [2.5, 5, 2.5]
+Jion['Eu3+'] = [3, 3, 0]
+Jion['Gd3+'] = [7/2, 0, 7/2]
 Jion['Tb3+'] = [3., 3., 6.]
 Jion['Dy3+'] = [2.5, 5., 7.5]
 Jion['Ho3+'] = [2., 6., 8.]
@@ -520,9 +550,11 @@ Jion['Yb3+'] = [0.5, 3., 3.5]
 # def ionJ(ion):
 #     return Jion[ion]
 
+
 def LandeGFactor(ion):
     s, l, j = Jion[ion]
     return 1.5 + (s*(s+1.) - l*(l+1.))/(2.*j*(j+1.))
+
 
 
 class Ligands:
@@ -535,7 +567,7 @@ class Ligands:
         self.latt = lat.lattice(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5])
 
         self.bonds = np.array([O - ionPos for O in ligandPos])
-        self.bonds = self.latt.cartesian(self.bonds)
+        self.bonds = self.latt.cartesian(self.bonds).astype('float')
         self.bondlen = np.linalg.norm(self.bonds, axis=1)
         self.ion = ion
 
@@ -577,22 +609,29 @@ class Ligands:
 
 
 
-    def PointChargeModel(self, symequiv=None,LigandCharge=1, printB = True, suppressminusm = False, ionL=None):
+    def PointChargeModel(self, symequiv=None, LigandCharge=-2,IonCharge=3, printB = True, 
+                            suppressminusm = False, ionL=None):
         '''Create point charge model of the crystal fields of a rare-earth ion.
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
 
+        self.IonCharge = IonCharge
         # Lock suppressmm into whatever it was when PointChargeModel was first called.
         try: self.suppressmm
         except AttributeError:
             self.suppressmm = suppressminusm
 
         if symequiv == None:
+            # charge = IonCharge*[LigandCharge]*len(self.bonds)
             charge = [LigandCharge]*len(self.bonds)
+
         else:
             charge = [0]*len(self.bonds)
             for i,se in enumerate(symequiv):
+                #charge[i] = IonCharge*LigandCharge[se]
                 charge[i] = LigandCharge[se]
+
+        
         
         ion=self.ion
         if ionL == None:
@@ -677,6 +716,7 @@ class CFLevels:
         self.Ci = Parameters
         try:
             self.J = (len(self.H) -1.)/2
+            self.opttran = opttransition(Operator.Jx(self.J).O, Operator.Jy(self.J).O.imag, Operator.Jz(self.J).O)
         except TypeError: pass
 
 
@@ -685,6 +725,7 @@ class CFLevels:
         newcls = cls([0,0],[0,0])  # Create empty class so we can just define Hamiltonian
         newcls.H = Hamil
         newcls.J = (len(Hamil) -1.)/2
+        newcls.opttran = opttransition(Operator.Jx(newcls.J).O.real, Operator.Jy(newcls.J).O.imag, Operator.Jz(newcls.J).O.real)
         return newcls
 
     def diagonalize(self, Hamiltonian=None):
@@ -706,7 +747,8 @@ class CFLevels:
 
     def neutronSpectrum(self, Earray, Temp, Ei, ResFunc, gamma = 0):
         # make angular momentum ket object
-        eigenkets = [Ket(ei) for ei in self.eigenvectors]
+        #eigenkets = [Ket(ei) for ei in self.eigenvectors]
+        eigenkets = self.eigenvectors.real
         intensity = np.zeros(len(Earray))
 
         # for population factor weights
@@ -716,14 +758,15 @@ class CFLevels:
         for i, ket_i in enumerate(eigenkets):
             # compute population factor
             pn = np.exp(-beta *self.eigenvalues[i])/Z
-
-            for j, ket_j in enumerate(eigenkets):
-                # compute amplitude
-                mJn = self._transition(ket_i,ket_j)
-                deltaE = self.eigenvalues[j] - self.eigenvalues[i]
-                GausWidth = ResFunc(deltaE)  #peak width due to instrument resolution
-                intensity += ((pn * mJn * self._voigt(x=Earray, x0=deltaE, alpha=GausWidth, 
-                                                    gamma=gamma)).real).astype('float64')
+            if pn > 1e-3:  #only compute for transitions with enough weight
+                for j, ket_j in enumerate(eigenkets):
+                    # compute amplitude
+                    #mJn = self._transition(ket_i,ket_j)   # Old: slow
+                    mJn = self.opttran.transition(ket_i,ket_j)
+                    deltaE = self.eigenvalues[j] - self.eigenvalues[i]
+                    GausWidth = ResFunc(deltaE)  #peak width due to instrument resolution
+                    intensity += ((pn * mJn * self._voigt(x=Earray, x0=deltaE, alpha=GausWidth, 
+                                                        gamma=gamma)).real).astype('float64')
                 #intensity += ((pn * mJn * self._lorentzian(Earray, deltaE, Width)).real).astype('float64')
 
         ## List comprehension: turns out this way was slower.
@@ -738,6 +781,32 @@ class CFLevels:
         kpoverk = np.sqrt((Ei - Earray)/Ei) #k'/k = sqrt(E'/E)
         return intensity * kpoverk
 
+    def normalizedNeutronSpectrum(self, Earray, Temp, ResFunc, gamma = 0):
+        '''1D neutron spectrum without the Kf/Ki correction'''
+        # make angular momentum ket object
+        # eigenkets = [Ket(ei) for ei in self.eigenvectors]
+        eigenkets = self.eigenvectors.real
+        intensity = np.zeros(len(Earray))
+
+        # for population factor weights
+        beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
+        Z = sum([np.exp(-beta*en) for en in self.eigenvalues])
+
+        for i, ket_i in enumerate(eigenkets):
+            # compute population factor
+            pn = np.exp(-beta *self.eigenvalues[i])/Z
+            if pn > 1e-3:  #only compute for transitions with enough weight
+                for j, ket_j in enumerate(eigenkets):
+                    # compute amplitude
+                    #mJn = self._transition(ket_i,ket_j)  # Old: slow
+                    mJn = self.opttran.transition(ket_i,ket_j)
+                    deltaE = self.eigenvalues[j] - self.eigenvalues[i]
+                    GausWidth = ResFunc(deltaE)  #peak width due to instrument resolution
+                    intensity += ((pn * mJn * self._voigt(x=Earray, x0=deltaE, alpha=GausWidth, 
+                                                        gamma=gamma)).real).astype('float64')
+        return intensity
+
+
     def neutronSpectrum2D(self, Earray, Qarray, Temp, Ei, ResFunc, gamma, DebyeWaller, Ion):
         intensity1D = self.neutronSpectrum(Earray, Temp, Ei, ResFunc,  gamma)
 
@@ -748,7 +817,7 @@ class CFLevels:
         return np.outer(intensity1D, DWF*FormFactor)
 
 
-    def _transition(self,ket1,ket2):
+    def _transition(self,ket1,ket2):  ## Correct, but slow.
         """Computes \sum_a |<|J_a|>|^2"""
         # Jx = Operator.Jx(ket1.j)
         # Jy = Operator.Jy(ket1.j)
@@ -801,7 +870,7 @@ class CFLevels:
             print(format(self._Re(sortEVal[i]), '.5f'),'\t| ', self._Re(sortEVec[i]),' |')
         print('\t\t'+'-------'*(len(self.eigenvalues)+1) + '\n')
 
-    def printLaTexEigenvectors(self):
+    def printLaTexEigenvectors(self, precision = 4):
         '''prints eigenvectors and eigenvalues in the output that Latex can read'''
         print('\\begin{table*}\n\\caption{Eigenvectors and Eigenvalues...}')
         print('\\begin{ruledtabular}')
@@ -819,7 +888,7 @@ class CFLevels:
                 +' \\tabularnewline\n \\hline ')
         sortinds = self.eigenvalues.argsort()
         sortEVal= np.around(self.eigenvalues[sortinds],3)
-        sortEVec= np.around(self.eigenvectors[sortinds],4)
+        sortEVec= np.around(self.eigenvectors[sortinds],precision)
         for i in range(len(sortinds)):
             print(format(self._Re(sortEVal[i]), '.3f'),'&', 
                 ' & '.join([str(eevv) for eevv in self._Re(sortEVec[i])]), '\\tabularnewline')
@@ -865,7 +934,7 @@ class CFLevels:
         diagonalH = LA.eigh(FieldHam)
 
         minE = np.amin(diagonalH[0])
-        evals = diagonalH[0] #- minE
+        evals = diagonalH[0] - minE
         evecs = diagonalH[1].T
         # These ARE actual eigenvalues.
 
@@ -984,18 +1053,76 @@ class CFLevels:
         return gJ*gJ*muB*suscept
 
 
+    def gtensor(self):
+        '''Returns g tensor computed numerically'''
+        def eliminateimag(number):
+            num = np.around(number, 10)
+            if num.imag == 0:
+                return (num.real).astype(float)
+            else:
+                return number
+
+        zeroinds = np.where(np.around(self.eigenvalues,7)==0)
+        gsEVec = self.eigenvectors[zeroinds]
+        vv1 = gsEVec[0]
+        vv2 = gsEVec[1]
+        Jx = Operator.Jx(self.J).O
+        Jy = Operator.Jy(self.J).O
+        Jz = Operator.Jz(self.J).O
+        jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,vv2)) )
+        jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,vv1)) )
+        jz00 = eliminateimag( np.dot(vv1,np.dot(Jz,vv1)) )
+        jz11 = eliminateimag( np.dot(vv2,np.dot(Jz,vv2)) )
+        
+        
+        jx01 = eliminateimag( np.dot(vv1,np.dot(Jx,vv2)) )
+        jx10 = eliminateimag( np.dot(vv2,np.dot(Jx,vv1)) )
+        jx00 = eliminateimag( np.dot(vv1,np.dot(Jx,vv1)) )
+        jx11 = eliminateimag( np.dot(vv2,np.dot(Jx,vv2)) )
+        
+        jy01 = eliminateimag( np.dot(vv1,np.dot(Jy,vv2)) )
+        jy10 = eliminateimag( np.dot(vv2,np.dot(Jy,vv1)) )
+        jy00 = eliminateimag( np.dot(vv1,np.dot(Jy,vv1)) )
+        jy11 = eliminateimag( np.dot(vv2,np.dot(Jy,vv2)) )
+        
+        gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
+                         [np.real(jy01), np.imag(jy01), jy00],
+                         [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
+        return gg
+
+
     def fitdata(self, chisqfunc, fitargs, method='Powell', **kwargs):
         '''fits data to CEF parameters'''
 
         # define parameters
-        if len(self.Ci) != len(kwargs['coeff']):
-            raise ValueError('coeff needs to have the same length as self.Ci')
+        # if len(self.Ci) != len(kwargs['coeff']):
+        #     raise ValueError('coeff needs to have the same length as self.Ci')
 
         # Define function to be fit
         fun, p0, resfunc = makeFitFunction(chisqfunc, fitargs, **dict(kwargs, CFLevelsObject=self) )
 
         ############## Fit, using error function  #####################
         p_best = optimize.minimize(fun, p0, method=method)
+        ###############################################################
+
+        print(fun(p_best.x))
+        print(chisqfunc(self, **kwargs))
+        initialChisq, finalChisq = chisqfunc(self, **kwargs), fun(p_best.x)
+        print('\rInitial err =', initialChisq, '\tFinal err =', finalChisq)
+        
+        result = resfunc(p_best.x)
+        #print '\nFinal values: ', result
+        result['Chisq'] = finalChisq
+        return result
+
+    def fitdata_GlobalOpt(self, chisqfunc, fitargs, **kwargs):
+        '''fits data to CEF parameters using the basin hopping algorithm'''
+
+        # Define function to be fit
+        fun, p0, resfunc = makeFitFunction(chisqfunc, fitargs, **dict(kwargs, CFLevelsObject=self) )
+
+        ############## Fit, using error function  #####################
+        p_best = optimize.basinhopping(fun, p0, niter=100, T = 1e5)
         ###############################################################
 
         print(fun(p_best.x))
@@ -1026,6 +1153,36 @@ class CFLevels:
 
 
 
+from numba import njit, jitclass
+from numba import float64
+
+import warnings
+warnings.filterwarnings('ignore')
+
+spec = [ 
+    ('Jx', float64[:,:]),          # an array field
+    ('Jy', float64[:,:]),
+    ('Jz', float64[:,:])
+]
+
+@jitclass(spec)
+class opttransition(object):
+    def __init__(self, optJx, optJy, optJz):
+        self.Jx = np.zeros((len(optJx),len(optJx)), dtype=np.float64)
+        self.Jy = np.zeros((len(optJx),len(optJx)), dtype=np.float64)
+        self.Jz = np.zeros((len(optJx),len(optJx)), dtype=np.float64)
+        self.Jx = optJx
+        self.Jy = optJy
+        self.Jz = optJz
+
+    def transition(self,ket1, ket2):
+        ax = np.dot(ket1, np.dot(self.Jx, ket2))**2
+        ay = np.dot(ket1, np.dot(self.Jy, ket2))**2
+        az = np.dot(ket1, np.dot(self.Jz, ket2))**2
+        return ax + ay + az
+
+
+
 
 def rescaleCEF(ion1, ion2, B, n):
     '''Uses the point charge model to scale a CEF parameter (B)
@@ -1033,6 +1190,11 @@ def rescaleCEF(ion1, ion2, B, n):
     with a different magnetic ion thrown in.'''
     scalefact = (RadialIntegral(ion2,n)*theta(ion2,n))/(RadialIntegral(ion1,n)*theta(ion1,n))
     return B*scalefact
+
+
+
+
+
 
 
 
@@ -1251,9 +1413,9 @@ class LSOperator():
         for i, ev in enumerate(evecs):
             #print np.real(np.dot(ev, np.dot( self.O ,ev))), diagonalH[0][i]
             #print np.real(np.dot( FieldHam ,ev)), np.real(diagonalH[0][i]*ev)
-            JexpVals[i] =[np.real(np.dot(ev, np.dot( Jx.O ,ev))),
-                          np.real(np.dot(ev, np.dot( Jy.O ,ev))),
-                          np.real(np.dot(ev, np.dot( Jz.O ,ev)))]
+            JexpVals[i] =[np.real(np.dot(np.conjugate(ev), np.dot( Jx.O ,ev))),
+                          np.real(np.dot(np.conjugate(ev), np.dot( Jy.O ,ev))),
+                          np.real(np.dot(np.conjugate(ev), np.dot( Jz.O ,ev)))]
         k_B = 8.6173303e-2  # meV/K
 
         if (isinstance(Temp, int) or isinstance(Temp, float)):
@@ -1409,23 +1571,24 @@ class LS_Ligands:
 
 
 
-    def PointChargeModel(self,  symequiv=None, LigandCharge=2, 
+    def PointChargeModel(self,  symequiv=None, LigandCharge=-2,IonCharge=1,
                         printB = True, suppressminusm = False):
         '''Create point charge model of the crystal fields of a rare-earth ion.
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
 
         # Lock suppressmm into whatever it was when PointChargeModel was first called.
+        self.IonCharge = IonCharge
         try: self.suppressmm
         except AttributeError:
             self.suppressmm = suppressminusm
 
         if symequiv == None:
-            charge = [LigandCharge]*len(self.bonds)
+            charge = IonCharge*[LigandCharge]*len(self.bonds)
         else:
             charge = [0]*len(self.bonds)
             for i,se in enumerate(symequiv):
-                charge[i] = LigandCharge[se]
+                charge[i] = IonCharge*LigandCharge[se]
         self.symequiv = symequiv
         
         ion=self.ion
@@ -1478,13 +1641,14 @@ class LS_Ligands:
 
 
     def TMPointChargeModel(self, RadialIntegrals,  halffilled=True, l=2,
-                        symequiv=None, LigandCharge=2, 
+                        symequiv=None, LigandCharge= -2, IonCharge=1,
                         printB = True, suppressminusm = False):
         ''' For transition metals:
         Create point charge model of the crystal fields of a rare-earth ion.
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
 
+        self.IonCharge = IonCharge
         # Lock suppressmm into whatever it was when PointChargeModel was first called.
         try: self.suppressmm
         except AttributeError:
@@ -1550,11 +1714,11 @@ class LS_Ligands:
     def ReMakePointChargeModel(newcharges):
         # make charges into list
         if self.symequiv == None:
-            charge = [newcharges]*len(self.bonds)
+            charge = self.IonCharge*[newcharges]*len(self.bonds)
         else:
             charge = [0]*len(self.bonds)
             for i,se in enumerate(self.symequiv):
-                charge[i] = newcharges[se]
+                charge[i] = self.IonCharge*newcharges[se]
 
     def FitChargesNeutrons(self, chisqfunc, fitargs, method='Powell', **kwargs):
         '''fits neutron data'''
@@ -1618,12 +1782,17 @@ class LS_CFLevels:
         LdotS = self.H_SOC.O*1.0
         if np.sum(LdotS.imag) == 0: LdotS = LdotS.real
         self.H_SOC.O = SpinOrbitCoupling*LdotS
+        self.spinorbitcoupling = SpinOrbitCoupling
+        #print(self.spinorbitcoupling)
 
         # Define J operators for use later
         g0 = 2.002319
-        self.Jx = g0*Sx + Lx
-        self.Jy = g0*Sy + Ly
-        self.Jz = g0*Sz + Lz
+        self.Jx = Sx + Lx
+        self.Jy = Sy + Ly
+        self.Jz = Sz + Lz
+        self.Jxg0 = g0*Sx + Lx
+        self.Jyg0 = g0*Sy + Ly
+        self.Jzg0 = g0*Sz + Lz
 
     @classmethod
     def Hamiltonian(cls, CEF_Hamil, SOC_Hamil, L, S):
@@ -1697,9 +1866,12 @@ class LS_CFLevels:
 
     def _transition(self,ket1,ket2):
         """Computes \sum_a |<|J_a|>|^2 = \sum_a |<|L_a + S_a|>|^2"""
-        ax = np.dot(ket1.ket,np.dot(self.Jx.O,ket2.ket)) * np.dot(ket2.ket,np.dot(self.Jx.O,ket1.ket))
-        ay = np.dot(ket1.ket,np.dot(self.Jy.O,ket2.ket)) * np.dot(ket2.ket,np.dot(self.Jy.O,ket1.ket))
-        az = np.dot(ket1.ket,np.dot(self.Jz.O,ket2.ket)) * np.dot(ket2.ket,np.dot(self.Jz.O,ket1.ket))
+        ax = np.dot(np.conjugate(ket1.ket),np.dot(self.Jx.O,ket2.ket)) *\
+                np.dot(np.conjugate(ket2.ket),np.dot(self.Jx.O,ket1.ket))
+        ay = np.dot(np.conjugate(ket1.ket),np.dot(self.Jy.O,ket2.ket)) *\
+                np.dot(np.conjugate(ket2.ket),np.dot(self.Jy.O,ket1.ket))
+        az = np.dot(np.conjugate(ket1.ket),np.dot(self.Jz.O,ket2.ket)) *\
+                np.dot(np.conjugate(ket2.ket),np.dot(self.Jz.O,ket1.ket))
 
         # eliminate tiny values
         ax, ay, az = np.around(ax, 10), np.around(ay, 10), np.around(az, 10)
@@ -1748,9 +1920,9 @@ class LS_CFLevels:
         gsEVec = self.eigenvectors[zeroinds]
         print('\t Ground State Expectation Values:')
         for ev in gsEVec:
-            jjxx = self._Re(np.dot(ev,np.dot(self.Jx.O,ev)))
-            jjyy = self._Re(np.dot(ev,np.dot(self.Jy.O,ev)))
-            jjzz = self._Re(np.dot(ev,np.dot(self.Jz.O,ev)))
+            jjxx = self._Re(np.dot(ev,np.dot(self.Jxg0.O,ev)))
+            jjyy = self._Re(np.dot(ev,np.dot(self.Jyg0.O,ev)))
+            jjzz = self._Re(np.dot(ev,np.dot(self.Jzg0.O,ev)))
             print('  <J_x> =',jjxx,'\t<J_y> =',jjyy,'\t<J_z> =',jjzz)
         print(' ')
 
@@ -1763,7 +1935,7 @@ class LS_CFLevels:
         # A) Define magnetic Hamiltonian
         muB = 5.7883818012e-2  # meV/T
         #mu0 = np.pi*4e-7       # T*m/A
-        JdotB = muB*(Field[0]*self.Jx + Field[1]*self.Jy + Field[2]*self.Jz)
+        JdotB = muB*(Field[0]*self.Jxg0 + Field[1]*self.Jyg0 + Field[2]*self.Jzg0)
 
         # B) Diagonalize full Hamiltonian
         FieldHam = self.H_CEF.O + self.H_SOC.O + JdotB.O
@@ -1779,9 +1951,9 @@ class LS_CFLevels:
         for i, ev in enumerate(evecs):
             #print np.real(np.dot(ev, np.dot( self.O ,ev))), diagonalH[0][i]
             #print np.real(np.dot( FieldHam ,ev)), np.real(diagonalH[0][i]*ev)
-            JexpVals[i] =[np.real(np.dot(ev, np.dot( self.Jx.O ,ev))),
-                          np.real(np.dot(ev, np.dot( self.Jy.O ,ev))),
-                          np.real(np.dot(ev, np.dot( self.Jz.O ,ev)))]
+            JexpVals[i] =[np.real(np.dot(np.conjugate(ev), np.dot( self.Jxg0.O ,ev))),
+                          np.real(np.dot(np.conjugate(ev), np.dot( self.Jyg0.O ,ev))),
+                          np.real(np.dot(np.conjugate(ev), np.dot( self.Jzg0.O ,ev)))]
         k_B = 8.6173303e-2  # meV/K
 
         if (isinstance(Temp, int) or isinstance(Temp, float)):
@@ -1856,7 +2028,7 @@ class LS_CFLevels:
         if not isinstance(deltaField, float):
             raise TypeError("Deltafield needs to be a scalar")
 
-        if isinstance(Field, float):
+        if (isinstance(Field, float) or isinstance(Field, int)):
             # Assume we are computing a powder average
             VecField = Field * np.array([1,0,0])
             Delta = deltaField*np.array(VecField)/Field
@@ -1898,25 +2070,25 @@ class LS_CFLevels:
         # A) Define magnetic Hamiltonian
         muB = 5.7883818012e-2  # meV/T
         #mu0 = np.pi*4e-7       # T*m/A
-        JdotB_0 = muB*(Field[0]*self.Jx + Field[1]*self.Jy + Field[2]*self.Jz)
+        JdotB_0 = muB*(Field[0]*self.Jxg0 + Field[1]*self.Jyg0 + Field[2]*self.Jzg0)
 
         Delta = deltaField*np.array([1,0,0])
         FieldPD = Field + Delta
-        JdotB_p1x = muB*(FieldPD[0]*self.Jx + FieldPD[1]*self.Jy + FieldPD[2]*self.Jz)
+        JdotB_p1x = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
         FieldPD = Field - Delta
-        JdotB_m1x = muB*(FieldPD[0]*self.Jx + FieldPD[1]*self.Jy + FieldPD[2]*self.Jz)
+        JdotB_m1x = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
 
         Delta = deltaField*np.array([0,1,0])
         FieldPD = Field + Delta
-        JdotB_p1y = muB*(FieldPD[0]*self.Jx + FieldPD[1]*self.Jy + FieldPD[2]*self.Jz)
+        JdotB_p1y = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
         FieldPD = Field - Delta
-        JdotB_m1y = muB*(FieldPD[0]*self.Jx + FieldPD[1]*self.Jy + FieldPD[2]*self.Jz)
+        JdotB_m1y = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
 
         Delta = deltaField*np.array([0,0,1])
         FieldPD = Field + Delta
-        JdotB_p1z = muB*(FieldPD[0]*self.Jx + FieldPD[1]*self.Jy + FieldPD[2]*self.Jz)
+        JdotB_p1z = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
         FieldPD = Field - Delta
-        JdotB_m1z = muB*(FieldPD[0]*self.Jx + FieldPD[1]*self.Jy + FieldPD[2]*self.Jz)
+        JdotB_m1z = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
 
         # B) Diagonalize full Hamiltonian
         # first do the Delta=0 field:
@@ -1965,6 +2137,177 @@ class LS_CFLevels:
             #     raise ValueError('Nan in result!')
             return np.nan_to_num(MagList.T) / muB
 
+
+
+
+    def LplusS_expval(self, Temp, Field, deltaField):
+        '''computes average of L + S. Used for g tensor calculation. This is 
+        the same as magnetization but with L+S, not L+'''
+        if len(Field) != 3: 
+            raise TypeError("Field needs to be 3-component vector")
+
+        # A) Define magnetic Hamiltonian
+        muB = 5.7883818012e-2  # meV/T
+        #mu0 = np.pi*4e-7       # T*m/A
+        JdotB_0 = muB*(Field[0]*self.Jxg0 + Field[1]*self.Jyg0 + Field[2]*self.Jzg0)
+        # print(JdotB_0)
+
+        Delta = deltaField*np.array([1,0,0])
+        FieldPD = Field + Delta
+        JdotB_p1x = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
+        FieldPD = Field - Delta
+        JdotB_m1x = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
+
+        Delta = deltaField*np.array([0,1,0])
+        FieldPD = Field + Delta
+        JdotB_p1y = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
+        FieldPD = Field - Delta
+        JdotB_m1y = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
+
+        Delta = deltaField*np.array([0,0,1])
+        FieldPD = Field + Delta
+        JdotB_p1z = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
+        FieldPD = Field - Delta
+        JdotB_m1z = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
+
+        # B) Diagonalize full Hamiltonian
+        # first do the Delta=0 field:
+        FieldHam = self.H_CEF.O + self.H_SOC.O + JdotB_0.O
+        diagonalH = LA.eigh(FieldHam)
+
+        minE = np.amin(diagonalH[0])
+        evals = diagonalH[0] - minE
+
+        # Compute LdotS for every eigenvector
+        LdotS_vals = []
+        for ev in diagonalH[1].T:
+            jjxx = self._Re(np.dot(np.conjugate(ev),np.dot(self.Jx.O,ev)))
+            jjyy = self._Re(np.dot(np.conjugate(ev),np.dot(self.Jy.O,ev)))
+            jjzz = self._Re(np.dot(np.conjugate(ev),np.dot(self.Jz.O,ev)))
+
+            LdotS_vals.append([jjxx, jjyy, jjzz])
+        LdotS_vals = np.array(LdotS_vals)
+
+        # Now do the Delta =/= 0:
+        Evals_pm = []
+        
+        for JdotB in [JdotB_p1x, JdotB_m1x, JdotB_p1y, JdotB_m1y, JdotB_p1z, JdotB_m1z]:   
+            FieldHam = self.H_CEF.O + self.H_SOC.O + JdotB.O
+            diagonalH = LA.eigh(FieldHam)
+            
+            Evals_pm.append(diagonalH[0])
+        minE = np.amin(Evals_pm)
+        Evals_pm -= minE
+
+        Evals_pm = np.array(Evals_pm).T
+
+        # C) Compute derivative of energy w.r.t. field:
+        Mderivs = np.zeros((len(Evals_pm),3))
+        for i, ev in enumerate(Evals_pm):
+            Mderivs[i]=[(ev[0] - ev[1])/(2*deltaField),  
+                        (ev[2] - ev[3])/(2*deltaField),  
+                        (ev[4] - ev[5])/(2*deltaField)]
+        k_B = 8.6173303e-2  # meV/K
+        #print(Mderivs)
+
+        if (isinstance(Temp, int) or isinstance(Temp, float)):
+            Zz = np.sum(np.exp(-evals/(k_B*Temp)))
+            BoltzmannWeights = np.exp(-evals/(k_B*Temp))/Zz
+            Magnetization = np.dot(BoltzmannWeights,Mderivs)/muB  
+                            #divide by muB to convert from meV/T  
+            WeightedLdotS = np.dot(BoltzmannWeights, LdotS_vals)
+
+            return Magnetization, WeightedLdotS
+                        
+        else: print('Temp must be float.')
+
+
+
+    def gtensor(self):
+        '''Returns g tensor computed numerically'''
+        def eliminateimag(number):
+            num = np.around(number, 10)
+            if num.imag == 0:
+                return (num.real).astype(float)
+            else:
+                return number
+
+        zeroinds = np.where(np.around(self.eigenvalues,7)==0)
+        gsEVec = self.eigenvectors[zeroinds]
+        vv1 = gsEVec[0]
+        vv2 = gsEVec[1]
+        Jx, Jy, Jz = self.Jxg0.O, self.Jyg0.O, self.Jzg0.O
+        # jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,vv2)) )
+        # jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,vv1)) )
+        # jz00 = eliminateimag( np.dot(vv1,np.dot(Jz,vv1)) )
+        # jz11 = eliminateimag( np.dot(vv2,np.dot(Jz,vv2)) )
+        
+        
+        # jx01 = eliminateimag( np.dot(vv1,np.dot(Jx,vv2)) )
+        # jx10 = eliminateimag( np.dot(vv2,np.dot(Jx,vv1)) )
+        # jx00 = eliminateimag( np.dot(vv1,np.dot(Jx,vv1)) )
+        # jx11 = eliminateimag( np.dot(vv2,np.dot(Jx,vv2)) )
+        
+        # jy01 = eliminateimag( np.dot(vv1,np.dot(Jy,vv2)) )
+        # jy10 = eliminateimag( np.dot(vv2,np.dot(Jy,vv1)) )
+        # jy00 = eliminateimag( np.dot(vv1,np.dot(Jy,vv1)) )
+        # jy11 = eliminateimag( np.dot(vv2,np.dot(Jy,vv2)) )
+        
+        # gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
+        #                  [np.real(jy01), np.imag(jy01), jy00],
+        #                  [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
+
+        jz01 = np.dot(vv1,np.dot(Jz,vv2)) 
+        jz10 = np.dot(vv2,np.dot(Jz,vv1))
+        jz00 = np.dot(vv1,np.dot(Jz,vv1))
+        jz11 = np.dot(vv2,np.dot(Jz,vv2))
+        
+        
+        jx01 = np.dot(vv1,np.dot(Jx,vv2))
+        jx10 = np.dot(vv2,np.dot(Jx,vv1))
+        jx00 = np.dot(vv1,np.dot(Jx,vv1))
+        jx11 = np.dot(vv2,np.dot(Jx,vv2))
+        
+        jy01 = np.dot(vv1,np.dot(Jy,vv2))
+        jy10 = np.dot(vv2,np.dot(Jy,vv1))
+        jy00 = np.dot(vv1,np.dot(Jy,vv1))
+        jy11 = np.dot(vv2,np.dot(Jy,vv2))
+        
+        gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
+                         [np.real(jy01), np.imag(jy01), jy00],
+                         [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
+
+        return gg
+
+    # def gtensor(self, spinorbitcoupling, halffilled=True):
+    #     '''Returns g tensor computed numerically via perturbation theory'''
+
+    #     g0 = 2.002319
+    #     gtens = np.zeros((3,3)) + np.identity(3)*g0
+
+    #     if halffilled: hff = -1
+    #     else:  hff = 1
+    #     zeta = spinorbitcoupling*2*self.S*hff
+
+    #     Lx = LSOperator.Lx(self.L, self.S)
+    #     Ly = LSOperator.Ly(self.L, self.S)
+    #     Lz = LSOperator.Lz(self.L, self.S)
+
+    #     ev0 = self.eigenvectors[1]
+    #     EE0 = self.eigenvalues[1]
+    #     for i, Li in enumerate([Lx, Ly, Lz]):
+    #         for j, Lj in enumerate([Lx, Ly, Lz]):
+    #             for k, ev in enumerate(self.eigenvectors):
+    #                 if self.eigenvalues[k] != EE0:
+    #                     jj1 = np.dot(np.conjugate(ev0),np.dot(Li.O,ev))
+    #                     jj2 = np.dot(np.conjugate(ev),np.dot(Lj.O,ev0))
+    #                     #print(jj1*jj2)
+    #                     gtens[i,j] -= 2*zeta*jj1*jj2/(self.eigenvalues[k]-EE0)
+    #                     print(2*zeta*jj1*jj2/(self.eigenvalues[k]-EE0))
+    #                     print(gtens[i,j])
+    #                 else: pass
+
+    #     return gtens
 
 
     def fitdata(self, chisqfunc, fitargs, method='Powell', **kwargs):
@@ -2108,6 +2451,20 @@ def importGridfile(fil, lowcutoff = 0):
 
 
 
-
+def printLaTexCEFparams(Bs):
+    precision = 5
+    '''prints CEF parameters in the output that Latex can read'''
+    print('\\begin{table}\n\\caption{Fitted vs. Calculated CEF parameters for ?}')
+    print('\\begin{ruledtabular}')
+    print('\\begin{tabular}{c|'+'c'*len(Bs)+'}')
+    # Create header
+    print('$B_n^m$ (meV)' +' & Label'*len(Bs)
+        +' \\tabularnewline\n \\hline ')
+    for i, (n,m) in enumerate([[n,m] for n in range(2,8,2) for m in range(0,n+1, 3)]):
+        print('$ B_'+str(n)+'^'+str(m)+'$ &', 
+              ' & '.join([str(np.around(bb[i],decimals=precision)) for bb in Bs]),
+              '\\tabularnewline')
+    print('\\end{tabular}\\end{ruledtabular}')
+    print('\\label{flo:CEF_params}\n\\end{table}')
 
 #####################################################################################

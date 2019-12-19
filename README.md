@@ -9,6 +9,10 @@ Created by Allen Scheie
 
 Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
 
+### Update (Dec. 19, 2019) to version 2.0
+
+Optimized the PyCrystalField neutron spectrum function for the effective J basis so that it runs over an order of magnitude faster. Fits that previously took 40 minutes now take 4 minutes.
+
 # Description
 
 This code is for doing single-ion crystal field calculations on Rare Earth ions using the Stevens Operators formalism. It can also do calculations on transition metal ions, though the code has not been cross-checked in that regime. The math is based on M. Hutchings, Solid State Physics, 16 , 227 (1964).

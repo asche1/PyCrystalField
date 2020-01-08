@@ -1,4 +1,4 @@
-# Code to calculate the crystal field Hamiltonians of KErSe2 and CsErSe2
+# Code to calculate the crystal field Hamiltonians of ABC
 
 Allen Scheie
 

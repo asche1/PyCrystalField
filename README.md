@@ -3,9 +3,7 @@ Code to calculate the crystal field Hamiltonian of magnetic ions.
 
 Created by Allen Scheie
 
-   scheie@jhu.edu
-
-   https://sites.google.com/view/allen-scheie/
+   scheieao@ornl.gov
 
 Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
 

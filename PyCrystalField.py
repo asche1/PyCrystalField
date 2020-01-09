@@ -745,6 +745,41 @@ class CFLevels:
         self.eigenvalues[abs(self.eigenvalues) < tol] = 0.0
         self.eigenvectors[abs(self.eigenvectors) < tol] = 0.0
 
+
+    def diagonalize_banded(self, Hamiltonian=None):
+        '''same as above, but using the Scipy eig_banded function'''
+        if Hamiltonian is None:
+            Hamiltonian = self.H
+        else:
+            self.H = Hamiltonian
+
+        bands = self._findbands(Hamiltonian)
+        diagonalH = LA.eig_banded(bands, lower=True)
+
+        #self.eigenvaluesNoNorm = diagonalH[0]
+        self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
+        self.eigenvectors = diagonalH[1].T
+        # set very small values to zero
+        tol = 1e-15
+        self.eigenvalues[abs(self.eigenvalues) < tol] = 0.0
+        self.eigenvectors[abs(self.eigenvectors) < tol] = 0.0
+
+    def _findbands(self, matrix):
+        '''used in the diagonalize_banded function'''
+        diags = np.zeros((len(matrix),len(matrix)))
+        for i in range(len(matrix)):
+            diag = matrix.diagonal(i)
+            if i == 0:
+                diags[i] = diag
+            else:
+                diags[i][:-i] = diag
+            if np.count_nonzero(np.around(diag,10)) > 0:
+                nonzerobands = i
+        return diags[:nonzerobands+1]
+
+
+
+
     def neutronSpectrum(self, Earray, Temp, Ei, ResFunc, gamma = 0):
         # make angular momentum ket object
         #eigenkets = [Ket(ei) for ei in self.eigenvectors]
@@ -1055,6 +1090,9 @@ class CFLevels:
 
     def gtensor(self):
         '''Returns g tensor computed numerically'''
+
+        self.diagonalize_banded()
+
         def eliminateimag(number):
             num = np.around(number, 10)
             if num.imag == 0:
@@ -1062,13 +1100,14 @@ class CFLevels:
             else:
                 return number
 
-        zeroinds = np.where(np.around(self.eigenvalues,7)==0)
+        zeroinds = np.where(np.around(self.eigenvalues,10)==0)
         gsEVec = self.eigenvectors[zeroinds]
-        vv1 = gsEVec[0]
-        vv2 = gsEVec[1]
+        vv1 = np.around(gsEVec[0],10)
+        vv2 = np.around(gsEVec[1],10)
         Jx = Operator.Jx(self.J).O
         Jy = Operator.Jy(self.J).O
         Jz = Operator.Jz(self.J).O
+        #print(vv1,'\n',vv2)
         jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,vv2)) )
         jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,vv1)) )
         jz00 = eliminateimag( np.dot(vv1,np.dot(Jz,vv1)) )
@@ -1085,10 +1124,57 @@ class CFLevels:
         jy00 = eliminateimag( np.dot(vv1,np.dot(Jy,vv1)) )
         jy11 = eliminateimag( np.dot(vv2,np.dot(Jy,vv2)) )
         
-        gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
+        gg = 2*np.array([[np.real(jx01), np.imag(jx01), jx00],
                          [np.real(jy01), np.imag(jy01), jy00],
                          [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
         return gg
+
+
+    # def gtensor(self, field=0.1, Temp=0.1):
+    #     '''Returns g tensor computed numerically from zeeman splitting'''
+    #     Jx = Operator.Jx(self.J)
+    #     Jy = Operator.Jy(self.J)
+    #     Jz = Operator.Jz(self.J)
+
+    #     #print(Jx)
+    #     #print(Jy)
+    #     muB = 5.7883818012e-2  # meV/T
+    #     #mu0 = np.pi*4e-7       # T*m/A
+
+    #     gg = np.zeros(3)
+    #     #loop through x,y,z
+    #     for i,Field in enumerate([[field,0,0], [0,field,0], [0,0,field]]):
+    #         JdotB = muB*(Field[0]*Jx + Field[1]*Jy + Field[2]*Jz)
+
+    #         # B) Diagonalize full Hamiltonian
+    #         FieldHam = self.H + JdotB.O
+    #         diagonalH = LA.eigh(FieldHam)
+
+    #         minE = np.amin(diagonalH[0])
+    #         evals = diagonalH[0] - minE
+    #         evecs = diagonalH[1].T
+
+    #         DeltaZeeman = evals[1]-evals[0]
+    #         print(DeltaZeeman)
+
+    #         # Now find the expectation value of J
+    #         JexpVals = np.zeros((len(evals),3))
+    #         for ii, ev in enumerate(evecs):
+    #             kev = Ket(ev)
+    #             JexpVals[ii] =[np.real(kev*kev.Jx()),
+    #                           np.real(kev*kev.Jy()),
+    #                           np.real(kev*kev.Jz())]
+    #         k_B = 8.6173303e-2  # meV/K
+
+    #         Zz = np.sum(np.exp(-evals/(k_B*Temp)))
+    #         JexpVal = np.dot(np.exp(-evals/(k_B*Temp)),JexpVals)/Zz
+
+    #         expectationJ = JexpVal[i]
+
+    #         # calculate g values
+    #         gg[i] = DeltaZeeman/(muB*field*expectationJ)
+            
+    #     return gg
 
 
     def fitdata(self, chisqfunc, fitargs, method='Powell', **kwargs):
@@ -1801,22 +1887,57 @@ class LS_CFLevels:
         newcls.H_SOC = SOC_Hamil  # Spin Orbit Coupling
         return newcls
 
+    ### DEPRECIATED 1/3/20: eig_banded is faster and less susceptible to roundoff errors
+    # def diagonalize(self, CEF_Hamiltonian=None):
+    #     """A Hamiltonian can be passed to the function (used for data fits)
+    #     or the initially defined hamiltonian is used."""
+    #     if CEF_Hamiltonian is None:
+    #         CEF_Hamiltonian = self.H_CEF.O
+    #     else:
+    #         self.H_CEF.O = CEF_Hamiltonian
+    #     diagonalH = LA.eigh(CEF_Hamiltonian + self.H_SOC.O)
+
+    #     self.eigenvaluesNoNorm = diagonalH[0]
+    #     self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
+    #     self.eigenvectors = diagonalH[1].T
+    #     # set very small values to zero
+    #     tol = 1e-15
+    #     self.eigenvalues[abs(self.eigenvalues) < tol] = 0.0
+    #     self.eigenvectors[abs(self.eigenvectors) < tol] = 0.0
+
+
     def diagonalize(self, CEF_Hamiltonian=None):
-        """A Hamiltonian can be passed to the function (used for data fits)
-        or the initially defined hamiltonian is used."""
+        '''same as above, but using the Scipy eig_banded function'''
         if CEF_Hamiltonian is None:
             CEF_Hamiltonian = self.H_CEF.O
         else:
             self.H_CEF.O = CEF_Hamiltonian
-        diagonalH = LA.eigh(CEF_Hamiltonian + self.H_SOC.O)
 
-        self.eigenvaluesNoNorm = diagonalH[0]
+        bands = self._findbands(CEF_Hamiltonian + self.H_SOC.O)
+        diagonalH = LA.eig_banded(bands, lower=True)
+
+        #self.eigenvaluesNoNorm = diagonalH[0]
         self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
         self.eigenvectors = diagonalH[1].T
         # set very small values to zero
         tol = 1e-15
         self.eigenvalues[abs(self.eigenvalues) < tol] = 0.0
         self.eigenvectors[abs(self.eigenvectors) < tol] = 0.0
+
+    def _findbands(self, matrix):
+        '''used in the diagonalize_banded function'''
+        diags = np.zeros((len(matrix),len(matrix)))
+        for i in range(len(matrix)):
+            diag = matrix.diagonal(i)
+            if i == 0:
+                diags[i] = diag
+            else:
+                diags[i][:-i] = diag
+            if np.count_nonzero(np.around(diag,10)) > 0:
+                nonzerobands = i
+        return diags[:nonzerobands+1]
+
+
 
     def neutronSpectrum(self, Earray, Temp, Ei, ResFunc, gamma = 0):
         maxtransition = 12 # because we can't see the others
@@ -2232,7 +2353,7 @@ class LS_CFLevels:
             else:
                 return number
 
-        zeroinds = np.where(np.around(self.eigenvalues,7)==0)
+        zeroinds = np.where(np.around(self.eigenvalues,4)==0)
         gsEVec = self.eigenvectors[zeroinds]
         vv1 = gsEVec[0]
         vv2 = gsEVec[1]

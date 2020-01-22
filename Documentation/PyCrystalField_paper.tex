@@ -1,0 +1,401 @@
+\documentclass[twocolumn,english,prb]{revtex4-2}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\setcounter{secnumdepth}{3}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage[colorlinks = true,
+linkcolor = blue,
+urlcolor  = blue,
+citecolor = blue,
+anchorcolor = blue]{hyperref}
+\usepackage[usenames, dvipsnames]{color}
+
+\makeatletter
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+\usepackage{babel}
+\usepackage{float}
+
+\usepackage{tabularx}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+\renewcommand{\tabularxcolumn}[1]{m{#1}}%
+	
+\newcommand{\angstrom}{${\buildrel _{\circ} \over {\mathrm{A}}}$}
+\makeatother
+
+\begin{document}
+	
+	\title{PyCrystalField: Software for Calculation, Analysis, and Fitting of Crystal Electric Field Hamiltonians}
+	
+	\author{A. Scheie}
+	\address{Neutron Scattering Division, Oak Ridge National Laboratory, Oak Ridge, Tennessee 37831, USA}
+	
+	
+\date{\today}
+
+%Note: abstract needs to be under 600
+\begin{abstract}
+We introduce PyCrystalField, a Python software package for calculating single-ion crystal electric field (CEF) Hamiltonians. This software can calculates a CEF Hamiltonian ab initio ffrom a point charge model for any transition or rare earth ion in either $J$ basis or $LS$  basis, calculate the energy spectrum and observables such as neutron spectrum and magnetization, and fit CEF Hamiltonians to any experimental data. Theory, implementation, and examples of its use are discussed.
+\end{abstract}
+
+\maketitle
+
+
+
+
+
+\section{Introduction}
+
+%\begin{quote}
+%	\textit{"The art of model building is the exclusion of real but irrelevant parts of the problem, and entails hazards for the builder and the reader. The builder may leave out something genuinely relevant; the reader, armed with too sophisticated an experimental probe or too accurate a computation, may take literally a schematized model whose main aim is to be a demonstration of a possibility."}
+%	\begin{flushright}
+%		- Phil Anderson \cite{anderson1978local}
+%	\end{flushright}
+%\end{quote}
+
+
+A material's electronic properties---which includes magnetic, optical, and electric qualities---are governed by electron orbitals. One of the key interactions which determines the ground state of an ion are the crystal electric field (CEF) interactions. These occur when Pauli exclusion and Coulomb repulsion from surrounding atoms shift the relative energies of valence electron orbitals. This can have dramatic effects on an ion's magnetism, causing single-ion anisotropies, quantum or classical spins, or even nonmagnetic singlets \cite{AbragamBleaney}. Unfortunately, CEF Hamiltonians are often very difficult to calculate. To aid in such calculations, we introduce PyCrystalField: a python library for calculating and fitting the CEF Hamiltonian of ions.
+
+The theory behind CEF calculations was worked out over 50 years ago \cite{Stevens1952,Hutchings1964}, but  calculating the single-ion Hamiltonian remains a challenge for two reasons. First, the exact Hamiltonian cannot be calculated \textit{ab initio}. One can use an approximate "point charge model", but these never reproduce measurements exactly \cite{EDVARDSSON1998,Mesot1998}. A quantitatively accurate CEF Hamiltonian must be fit to data (usually neutron scattering for heavy ions), and these fits must be done carefully. Second, the complexity of the CEF Hamiltonian depends upon the symmetry of the ion's environment, causing low-symmetry Hamiltonians to have over a dozen independent parameters. Because of this, determining a CEF Hamiltonian can be quite challenging.
+
+Other software has been developed to do CEF calculations, such as FOCUS \cite{FOCUS}, McPhase \cite{McPhase}, SIMPRE \cite{SIMPRE}, or SPECTRE \cite{SPECTRE}. Useful as they are, these software are limited in either the type of ions they consider or the type of data they can fit. The ideal software would allow the user freedom to consider any ion in any environment to fit any kind of data. PyCrystalField achieves this.
+
+
+\section{Theory}
+
+
+The general CEF Hamiltonian can be written as 
+\begin{equation}
+\mathcal{H}_{CEF} =\sum_{n,m} B_{n}^{m}O_{n}^{m},
+\end{equation}
+where $O_{n}^{m}$ are the Stevens Operators \cite{Stevens1952,Hutchings1964} and $B_{n}^{m}$ are multiplicative factors called CEF parameters. These parameters can either be fit to experimental data or calculated from a point-charge model.
+
+\subsection{Point Charge Model}
+
+An approximate CEF Hamiltonian can be calculated by treating the surrounding ligands as point-charges and calculating the CEF Hamiltonian from Coulombic repulsion. PyCrystalField calculates $B_{n}^{m}$ using the method outlined by Hutchings in ref. \cite{Hutchings1964}, where
+\begin{equation}
+B_{n}^{m}=-\gamma_{nm}q C_{nm}\left\langle r^{n}\right\rangle \theta_{n}.
+\label{eqA:CEFparams}
+\end{equation}
+Here, $\gamma_{nm}$ is a term calculated from the ligand environment expressed in terms of Tesseral Harmonics, $q$ is the charge of  the central ion (in units of $e$), $C_{nm}$ are constants from spherical harmonics, $\left\langle r^{n}\right\rangle$ is the expectation value of the radial wavefunction (taken from ref. \cite{EDVARDSSON1998} for all rare-earth ions), and $\theta_{n}$ are constants
+associated with electron orbitals. Equation \ref{eqA:CEFparams} is derived in Appendix \ref{PC_CEF_B}.
+
+
+\subsection{Neutron Cross Section}
+
+Neutron scattering is one of the easiest ways to see the energies and intensities of CEF transitions from one state to another. PyCrystalField calculates the powder-averaged neutron cross section with the dipole approximation
+\begin{multline}
+\frac{d^2\sigma}{d\Omega d\omega} = N (\gamma r_0)^2 \frac{k'}{k}F^2(\mathbf{Q}) e^{-2W(\mathbf{Q})} \\
+p_n|\langle \Gamma_m|\hat J_{\perp}|\Gamma_n \rangle|^2 \delta(\hbar \omega + E_n - E_m)
+\label{eqA:NeutronCrossSec}
+\end{multline}
+\cite{Furrer2009neutron}, where $N (\gamma r_0)^2$ are normalization factors, $k$ and $k'$ are the incoming and outgoing neutron wavevectors, $F(\mathbf{Q})$ is the electronic form factor, $e^{-2W(\mathbf{Q})}$ is the Debye Waller factor, $p_n$ is the Boltzmann weight, and $|\langle \Gamma_m|\hat J_{\perp}|\Gamma_n \rangle|^2  = 
+\frac{2}{3} \sum_{\alpha} |\langle \Gamma_m|\hat J_{\alpha}|\Gamma_n \rangle|^2 $ is computed from the inner product of total angular momentum $J_{\alpha}$ with the CEF eigenstates $|\Gamma_n \rangle$.
+
+In practice, the delta function $\delta(\hbar \omega + E_n - E_m)$ in eq. \ref{eqA:NeutronCrossSec} has a finite width due to the limited energy resolution of the instrument and the finite lifetime of the excited states. PyCrystalField approximates the instrument resolution with a Gaussian profile and the finite lifetimes with a Lorentzian profile, making the effective profile a convolution of the two (PyCrystalField uses a Voigt profile for the sake of computational efficiency). PyCrystalField allows the user to specify an arbitrary resolution function giving the Gaussian FWHM as a function of $\Delta E$. (A useful approximation for time-of-flight spectrometers can be found in ref. \cite{ARCS_resolution}.) Lorentzian FHWM is provided by the user and is treated as $\Delta E$-independent.
+
+
+PyCrystalField can calculate 2D (intensity vs $\Delta E$) and 3D (intensity vs $\Delta E$ and $Q$) data sets, as shown in Fig. \ref{flo:NdMg_NeutronData}. For 3D data sets, the ion and Debye-Waller factor must be specified in order to calculate $Q$-dependence. (At the time of writing, the 3D neutron data calculations are only available for rare-earth ions.)
+
+\subsection{Magnetization and Susceptibility}
+
+\sloppy It can be useful to compute susceptibility and magnetization from the CEF Hamiltonian. To do this, PyCrystalField calculates magnetization non-perturbatively as $M_{\alpha} = g_J \langle J_{\alpha} \rangle$, where $\langle J_{\alpha} \rangle = \sum_i e^{\frac{-E_i}{k_B T}}\langle i \rvert J_{\alpha} \lvert i \rangle ~/ Z~$ and $|i\rangle$ are the eigenstates of the effective Hamiltonian ${\cal H} = {\cal H}_{CEF} + \mu_B g_J {\bf B}\cdot {\bf J} $, where ${\bf B}$ is magnetic field. Susceptibility $\chi_{\alpha, \beta} = \frac{\partial M_{\alpha}}{\partial B_{\beta}}$ is calculated via a numerical derivative of magnetization with respect to field.
+
+The advantage of the non-perturbative approach is that it can be extended to large magnetic fields and high temperatures without sacrificing accuracy.
+
+
+\subsection{Intermediate Coupling Scheme}
+
+For the rare earth ions, the crystal fields are much weaker than spin-orbit coupling and are generally treated as a perturbation to the spin-orbit Hamiltonian, operating on an effective spin $J$. However, for transition ions (and certain rare earths) where the spin-orbit Hamiltonian $\mathcal{H}_{SOC}=\lambda S \cdot L$ is of the same magnitude as $\mathcal{H}_{CEF}$, it is necessary to treat both CEF and spin-orbit coupling non-perturbatively in what is called the "intermediate coupling scheme" where $\mathcal{H}_{CEF}$ acts only on orbital angular momentum $L$. \cite{AbragamBleaney}
+
+PyCrystalField can do all calculations in either the weak coupling scheme ($J$ basis) or the intermediate coupling scheme ($LS$ basis), although in the latter case the ion's spin-orbit coupling $\lambda$ must be provided by the user. The advantage of the intermediate scheme is that it can account for intermultiplet transitions, but the disadvantage is that the eigenkets are usually harder to interpret. 
+
+In calculating the intermediate-coupling neutron spectrum, $|\langle \Gamma_m|\hat J_{\perp}|\Gamma_n \rangle|^2  = |\langle \Gamma_m|\hat L_{\perp} + \hat S_{\perp}|\Gamma_n \rangle|^2 $ and in calculating magnetization $M_{\alpha} = g_J \langle J_{\alpha} \rangle = \langle L_{\alpha} + g_e S_{\alpha} \rangle$. Details of calculating a point-charge model in the intermediate scheme are given below.
+
+
+
+
+\subsection{$g$-tensor}
+
+PyCrystalField can calculate the Lande $g$-tensor from an intermediate coupling CEF Hamiltonian. 
+The $g$ tensor is defined such that 
+\begin{equation}
+\mathcal{H}_{Zeeman} = \mu_B ({\bf B} \cdot {\bf L} + g_e  {\bf B} \cdot {\bf S}) = \mu_B {\bf B} \cdot g \cdot {\bf J},
+\end{equation} 
+where ${\bf B}$ is applied magnetic field, $\bf L$ is orbital angular momentum, $\bf S$ is spin angular momentum, and $\bf J$ is total angular momentum. With a doublet ground state $|\pm \rangle$, the Hamiltonian can be re-written using the Pauli spin matrices. Assuming a magnetic field along $z$ for simplicity
+$$
+\mathcal{H}_{eff} = \mu_B B_z \begin{bmatrix}
+\langle + | L_z + g_e S_z | + \rangle & \langle + | L_z + g_e S_z | - \rangle \\
+\langle - | L_z + g_e S_z | + \rangle & \langle - | L_z + g_e S_z | - \rangle \\
+\end{bmatrix}
+$$
+in the $LS$ basis and
+$$
+\mathcal{H}_{eff} = \frac{1}{2} \mu_B B_z \begin{bmatrix}
+g_{zz} & (g_{zx} - i g_{zy}) \\
+(g_{zx} + i g_{zy}) & - g_{zz} \\
+\end{bmatrix}
+$$
+in the effective $J$ basis. Setting these two equations equal to each other and assuming $B_z$ is small, we can compute the $g$ tensor from the $LS$ basis:
+\begin{equation}
+g_{zz}= 2 \langle + | L_{z} + g_e S_{z} |+ \rangle, \quad \quad g_{zx} + i g_{zy}=2 \langle - | L_{z} + g_e S_{z} |+ \rangle,
+\label{eq:gtensor}
+\end{equation}
+and so on for $g_{yy}$, $g_{yx}$, etc.  PyCrystalField uses Eq. \ref{eq:gtensor} to compute the $g$ tensor from any intermediate coupling Hamiltonian.
+
+\section{Implementation}
+
+PyCrystalField is a collection of Python objects and functions which allow the user to build and fit CEF Hamiltonians with just a few lines of code. The ability to write scripts greatly streamlines the analysis process. It is available for download at \url{https://github.com/asche1/PyCrystalField}.
+Please report bugs to scheieao@ornl.gov.
+
+\subsection{Building CEF Hamiltonian}
+
+The user may build a CEF Hamiltonian in two ways: (a) specifying the CEF parameters $B_n^m$, or (b) defining the locations of point-charges to build a point-charge model. 
+PyCrystalField can build a point-charge CEF Hamiltonian for any ion in any environment, but shortcuts have been built-in for rare-earth 3+ ions.
+
+For magnetic rare-earth 3+ ions with orbital moments ($\rm Pr^{3+}$, $\rm Nd^{3+}$, $\rm Pm^{3+}$, $\rm Sm^{3+}$, $\rm Tb^{3+}$, $\rm Dy^{3+}$, $\rm Ho^{3+}$, $\rm Er^{3+}$, $\rm Tm^{3+}$, and $\rm Yb^{3+}$) the ground state $J$, $L$, $S$, and $\langle r^{n} \rangle$ values are automatically read from internal tables by PyCrystalField.
+For other ions, $L$, $S$, and  $\langle r^{n} \rangle$ must be provided by the user, with the radial integral in units of $(a_0)^n$. 
+Because nearly all other ions have significant $J$ multiplet mixing, calculations in the $J$ basis are only available for rare-earth ions.
+
+\subsection{Fitting}
+
+PyCrystalField allows complete freedom in fitting data. The user must provide a global $\chi^2$ function and PyCrystalField will minimize $\chi^2$ by varying user-specified variables. The user may fit any set of variables to the data: $B_n^m$, point-charge location, effective charge of the point-charges, width of neutron scattering peaks, etc. In this way, the fit can be as constrained or as free as necessary. The user may fit to any calculated value: neutron data, magnetization, a list of eigenvalues, or susceptibility. In this way, any variable may be fit to any kind of data.
+
+\section{Discussion}
+
+\subsection{Examples}
+
+In this section we present and discuss three examples to show the performance and capabilities of PyCrystalField.
+
+\subsubsection{Comparison to Manual Calculation: $\rm Yb^{3+}$ inside a cube of $\rm O^{2-}$ ions}
+
+To confirm the accuracy of PyCrystalField, we compare its results to a result calculated by hand. We computed the weak-coupling point-charge CEF Hamiltonian for a $\rm Yb^{3+}$ ion surrounded by a cube of $\rm O^{2-}$ ions at a distance of $\sqrt{3}$ \angstrom$\>$ from the central ion. This system is easily calculable by hand, thanks to Hutchings (ref. \cite{Hutchings1964}).
+
+According to Hutchings Eq. (6.11), a point-charge cubic environment has a Hamiltonian of the form 
+\begin{equation}
+H = B_4^0 (O_4^0 + 5 O_4^4) +  B_6^0 (O_6^0 - 21 O_6^4),
+\end{equation}
+where for eight-fold coordination (i.e., a cube of ligands) $B_4^0 = \frac{7}{18}\frac{|e|q}{d^5}\beta_J \langle r^4 \rangle$ and $B_6^0 = -\frac{1}{9}\frac{|e|q}{d^7}\gamma_J \langle r^6 \rangle$ (Hutchings Table XIV), and 
+for Yb$^{3+}$ 
+$\beta_J = \frac{-2}{3 \cdot 5 \cdot 7 \cdot 11}$ and $\gamma_J = \frac{2^2}{3^3 \cdot 7 \cdot 11 \cdot 13}$ (Hutchings Table VI).
+The resulting CEF parameters are given in Table \ref{flo:YbCube_CEF_params}. PyCrystalField's point-charge calculation agrees with the result perfectly.
+
+\begin{table}
+	\centering
+	\caption{Calculated CEF parameters for a $\rm Yb^{3+}$ ion inside a cube of $\rm O^{2-}$ ions, by hand via the method in Hutchings \cite{Hutchings1964}, and then by PyCrystalField.}
+		\begin{tabular}{c|cc}
+			\hline \hline
+			$B_n^m$ (meV) & By Hand & PyCrystalField \\
+			\hline 
+			$ B_4^0$ & 0.1515035 & 0.1515035 \\
+			$ B_4^4$ & 0.7575173 & 0.7575173 \\
+			$ B_6^0$ & 0.001604 & 0.001604 \\
+			$ B_6^4$ & -0.0336841 & -0.0336841 \\
+			\hline \hline
+		\end{tabular}
+		\label{flo:YbCube_CEF_params}
+	\end{table}
+
+
+
+\subsubsection{Ab-initio Ni$^{2+}$ Energy Levels}
+
+PyCrystalField can also be used to calculate the ground state energy splitting of an ion in a particular ligand environment. If the ligand positions are well-known, a point-charge model is accurate enough to predict the general character of the ion's energy spectrum. This is similar to a comparison with a Tanabe-Sugano diagram \cite{AbragamBleaney}, but with far more quantitative accuracy.
+
+An example of this is the calculation of the electron orbital energies of $\rm Ni_2Mo_3O_8$, which has Ni$^{2+}$ ions surrounded by distorted octahedral and tetrahedral coordination of O$^{2-}$ ions \cite{JenHoneycomb}. PyCrystalField allowed for \textit{ab initio} calculation of the energy spectrum of the valence orbitals in the intermediate coupling scheme. These calculations were used to qualitatively predict magnetic exchanges, single-ion anisotropies, and temperature-dependence in $g$-factor within $\rm Ni_2Mo_3O_8$.
+
+\subsection{Uses and Limitations}
+
+
+P. W. Anderson writes,
+"The art of model building is the exclusion of real but irrelevant parts of the problem, and entails hazards for the builder and the reader. The builder may leave out something genuinely relevant; the reader, armed with too sophisticated an experimental probe or too accurate a computation, may take literally a schematized model whose main aim is to be a demonstration of a possibility." \cite{anderson1978local}
+
+Accordingly,
+although Crystal Field theory is very useful, it has pitfalls that users should be aware of. First, the point-charge model is imperfect because the ligand electrons generally have valence p-orbitals, which are anisotropic and cause the effective charge to differ from the idealized point-charge model. Second, the success of fits involving many CEF parameters is highly dependent upon the starting values. There are various approaches to get around this, such as using the point-charge model to generate starting parameters or using a Monte Carlo method to generate many sets of starting parameters and fitting from each one. (In the latter case, a comparison to a point-charge model is still helpful to ensure that the CEF parameters are physically sensible.)
+Third, it is not possible to translate a set of CEF parameters from the weak-coupling scheme to the intermediate scheme or vice verse. This is because the parameters $\theta$ will differ (see Appendix \ref{IntermediateScheme}), requiring a re-calculation or re-fitting of the CEF parameters.
+
+
+
+\section{Conclusion}
+
+PyCrystalField is a general-purpose crystal field calculation package which allows the user to consider any type of data, any ion, and any ligand environment. It also allows the user to calculate observable quantities such as neutron scattering and bulk magnetization and susceptibility. It is accurate in reproducing simple point-charge calculations, it can fit highly asymmetric Hamiltonians to complex data sets, and it can make qualitative ground state predictions from a point-charge model.
+
+PyCrystalField simplifies difficult CEF calculations in a way that makes them practical for more of the scientific community. Understanding the single-ion properties in a material is often critical to understanding the behavior of the whole, and CEF calculations are a critical part of this.
+
+\section*{Acknowledgments}
+
+This research at the Spallation Neutron Source was supported by the DOE Office of Science User Facilities Division. 
+This work was supported by the Gordon and Betty Moore foundation under the EPIQS program GBMF4532.
+The author acknowledges helpful input from Collin Broholm and Tyrel McQueen.
+
+
+\appendix
+
+
+\section{Calculation of Point-charge CEF Parameters}\label{PC_CEF_B}
+
+
+We begin with Hutchings \cite{Hutchings1964} Eq. 2.7:
+$$
+V(r,\theta,\phi)=\sum_{n=0}^{\infty}\sum_{\alpha}r^{n}\gamma_{n\alpha}Z_{n\alpha}(\theta,\phi),
+$$
+where $Z_{n\alpha}$ are tesseral harmonics, and 
+\begin{equation}
+\gamma_{n\alpha}=\sum_{j=1}^{k}\frac{4\pi}{(2n+1)}q_{j}\frac{Z_{n\alpha}(\theta_{j},\phi_{j})}{R_{j}^{n+1}},
+\end{equation}
+summing over $k$ ligands surrounding the central ion. 
+
+Now, we recognize that (according to Hutchings Eq. 5.3): 
+$$V(x,y,z)=\sum_{mn}A_{n}^{m}\frac{1}{-|e|}f_{nm}^{c}(x,y,z)$$
+and according to Eq. (5.5), the Hamiltonian can be written as
+$$
+\mathcal{H}=-|q|\sum_{i}V_{i}(x_{i},y_{i},z_{i})=\sum_{i}\sum_{mn}A_{n}^{m}f_{nm}^{c}(x,y,z),
+$$
+summing over electrons and where $q=Ze$. Alternatively, we can write the Hamiltonian
+in terms of Stevens Operators (also following eq. 5.5):
+$$
+\mathcal{H}=-|Ze|\sum_{i}\sum_{n,m}r^{n}\gamma_{nm}Z_{nm}(\theta_{i},\phi_{i})
+$$
+$$
+=\sum_{i}\sum_{n,m}A_{n}^{m}f_{nm}^{c}(x_{i},y_{i},z_{i})=\sum_{n,m}\underbrace{\left[A_{n}^{m}\left\langle r^{n}\right\rangle \theta_{n}\right]}_{B_{n}^{m}}O_{n}^{m}
+$$
+$$ \mathcal{H} =\sum_{n,m} B_{n}^{m}O_{n}^{m}, $$
+where $\theta_{n}$ is a multiplicative factor which is dependent
+on the ion ($\theta_{2}=\alpha_{J}$; $\theta_{4}=\beta_{J}$; $\theta_{6}=\gamma_{J}$;
+see Table VI in Hutchings). Now, we solve the equations. 
+We can look up $\left\langle r^{n}\right\rangle \theta_{n}$,
+we just need to find $A_{n}^{m}$.
+
+Because $A_{n}^{m}f_{nm}^{c}(x_{i},y_{i},z_{i})=-|e|r^{n}\gamma_{nm}Z_{nm}(\theta_{i},\phi_{i})$,
+we should be able to find $A_{n}^{m}$. Now it turns out that, according
+to Eq. 5.4 in Hutchings, $C_{nm}\times f_{nm}^{c}(x_{i},y_{i},z_{i})=r^{n}Z_{nm}^{c}(\theta_{i},\phi_{i})$,
+where $C_{nm}$ is a multiplicative factor in front of the Tesseral
+harmonics. Therefore,
+$$
+A_{n}^{m}=-\gamma_{nm}^{c}|Ze|C_{nm}.
+$$
+A closed-form expression for the constants C is very hard to derive,
+so we used Mathematica to generate the prefactors to the spherical
+harmonics. They can be found in "TessHarmConsts.txt".
+
+
+
+In the end, we can find the crystal field parameters $B_{n}^{m}$
+with the formula
+$$
+B_{n}^{m}=A_{n}^{m}\left\langle r^{n}\right\rangle \theta_{n}
+$$
+\begin{equation}
+B_{n}^{m}=-\gamma_{nm}|Ze|C_{nm}\left\langle r^{n}\right\rangle \theta_{n}.
+\end{equation}
+We know $|e|$, $Z$ (ionization of central ion), and the constants $C_{nm}$, we can look up $\theta_{n}$
+in Hutchings, and we can look up $\left\langle r^{n}\right\rangle $
+in the literature.
+
+
+\subsubsection*{Units}
+The last trick here is the units. We want the Hamiltonian in units of meV. $\gamma_{n\alpha}$ is in units of $\frac{e}{\textrm{\angstrom}^{n+1}}$,
+$C_{nm}$ and $\theta_{n}$ are unitless, and $\left\langle r^{n}\right\rangle $
+is in units of $(a_{0})^{n}$. This means that $B_{n}^{m}$ in the equation written above come out in units of $\frac{e^{2}}{\textrm{\angstrom}}$. We want to convert this to meV.
+
+To do this, we first recognize that we have to re-write Hutchings
+eq. (II.2) with the proper prefactor for Coulomb's law: $W=\sum_{i}\frac{1}{4\pi\epsilon_{0}}q_{i}V_{i}$. Thus,
+our Hamiltonian becomes
+$$
+\mathcal{H}_{CEF}\,=\sum_{nm}B(exp)_{n}^{m}O_{n}^{m}=\sum_{nm}\frac{1}{4\pi\epsilon_{0}}B(calc)_{n}^{m}O_{n}^{m}.
+$$
+Now $\epsilon_{0}=\frac{e^{2}}{2\alpha hc}$, so we can directly plug this into the equation:
+$$ 
+\begin{aligned}
+B(exp)_{n}^{m} & = \frac{1}{4\pi\epsilon_{0}}B(calc)_{n}^{m}=\frac{-1}{4\pi\epsilon_{0}}\gamma_{nm}|Ze|C_{nm}\left\langle r^{n}\right\rangle \theta_{n} \\
+& =\frac{-2\alpha hc}{4\pi e^{2}}\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right)e^{2}Z\frac{a_{0}^{n}}{\textrm{\angstrom}^{n+1}}.
+\end{aligned}
+$$
+Plugging in the values, we get the equation used by PyCrystalField:
+\begin{equation}
+B_{n}^{m}=1.440\times10^{4}\left(0.5292\right)^{n}Z\left(\gamma_{nm}C_{nm}\left\langle r^{n}\right\rangle \theta_{n}\right){\rm meV}.
+\end{equation}
+
+
+
+
+\section{$\theta_n$ in the Intermediate Scheme} \label{IntermediateScheme}
+
+
+When calculating crystal field levels from the point charge model, the $\theta_{n}$ constants are
+listed in Stevens (1952) \cite{Stevens1952} for the ground states of all the rare earth
+ions in the $J$ basis. But if we want to look at the state of the rare earth ion in
+the $LS$ basis (intermediate coupling scheme), we must recalculate $\theta_{n}$ for each state.
+
+General formulae for first two constants, $\theta_{2}=\alpha$ and $\theta_{4}=\beta$,
+are listed in ref. \cite{BleaneyStevens1953}. However, because they assume that such constants are only necessary
+for $3d$ group ions, they do not list $\theta_{6}$. Therefore, we must derive it on our own, following the method of Stevens \cite{Stevens1952}. We take as an example the ${\rm Sm}^{3+}$ ion, which has five electrons in its $f$ orbital valence shell
+and a ground state of ${\rm Sm}^{3+}$ has $S=5/2$, $L=5$, and $J=5/2$.
+
+We know that 
+\begin{equation}
+\begin{aligned}
+V_{6}^{0}&=\Sigma(231z^{6}-315z^{4}r^{2}+105z^{2}r^{4}-5r^{6}) \\
+&=\gamma_{6,0}C_{6,0}\left\langle r^{6}\right\rangle \theta_{6}O_{6}^{0},
+\end{aligned}\end{equation}
+where the Stevens operator
+\begin{equation}\begin{aligned}
+O_{6}^{0}=&231L_{z}^{6}-(315X-735)L_{z}^{4}+(105X^{2}-525X+294)L_{z}^{2} \\
+&-5X^{3}+40X^{2}-60X
+\label{eq:StevensOp06}
+\end{aligned}\end{equation}
+and $X=L(L+1)$. Now to calculate $\theta_{6}$, we pick an eigenstate (in this case, $| L=5, S=5/2, m_l=5, m_s=-5/2 \rangle$) and calculate
+the expectation value in terms of the Stevens Operators, and then
+calculate it in terms of the individual electron wave functions. Then we set the two results equal to each other to find the multiplicative factor necessary to make the Stevens Operator result match the wave function integral.
+
+\paragraph*{Stevens Operators:}
+This is a straightforward calculation from eq. \ref{eq:StevensOp06}. Letting $G_{6}^{0}=\left\langle r^{6}\right\rangle \theta_{6}O_{6}^{0}$,
+\begin{equation}\begin{aligned}
+\langle L=5,\,m_{l}=5\rvert G_{6}^{0}\lvert L=5,\,m_{l}=5\rangle\, \\
+=\,\theta_{6}\left\langle r^{6}\right\rangle 37800.
+\label{eq:StevensOpCalc}
+\end{aligned}\end{equation}
+
+\paragraph*{Individual electron wave functions: }
+To carry out this calculation we write $\lvert m_{l}=5,\,m_{s}=-\frac{5}{2}\rangle$ as a product
+state of the individual electron wave functions in the valence shell,
+which have $l=3$, $m=3,2,1,0,-1$ (adding up to $L=5$). Now we just recompute
+$V_{6}^{0}$ in the basis of individual electrons: $V_{6}^{0}=\gamma O_{6}^{0}$
+, where $m_{l}=m$ and $L=l$:
+\begin{multline}
+\langle L=5,\,m_{l}=5\rvert V_{6}^{0}\lvert L=5,\,m_{l}=5\rangle \\
+=\,\{3,2,1,0,-1\}V_{6}^{0}\{3,2,1,0,-1\}\\
+=\gamma(180-1080+2700-3600+2700)=900\gamma.
+\label{eq:iewfCalc}
+\end{multline}
+We introduced $\gamma$ to account for the unknown scaling factor. (The similarity to $\gamma_{6,0}$ is unfortunate, because the $\gamma$s are unrelated. Nevertheless, we follow the notation of Stevens in this appendix.) So now we can relate eq. \ref{eq:StevensOpCalc}  to eq. \ref{eq:iewfCalc} so $\beta\left\langle r^{6}\right\rangle =\frac{900}{37800}\gamma=\frac{1}{42}\gamma$.
+Now we find $\gamma$ by integrating the wave functions themselves. Let's pick the state $l=3$, $m=3$:
+\begin{multline}
+\langle l=3,m=3\rvert V_{6}^{0}\lvert l=3,m=3\rangle=180\gamma \\ =\int_{0}^{2\pi}\int_{0}^{\pi}Y_{3}^{3*}(231z^{6}-315z^{4}r^{2}+105z^{2}r^{4}-5r^{6})Y_{3}^{3}\sin\theta d\theta d\phi\\
+=\frac{-80}{429}r^{6}.
+\end{multline}
+This means that $\gamma=-\frac{80}{180\cdot429}r^{6}=-\frac{4}{3861}r^{6}$, so that
+\begin{equation}
+\theta_{6}\left\langle r^{6}\right\rangle =-\frac{1}{42}\gamma=-\frac{4}{42\cdot3861}r^{6}
+\end{equation}
+and $\theta_6$ for ${\rm Sm}^{3+}$ is
+\begin{equation}
+\theta_{6}=-\frac{4}{42\cdot3861}.
+\end{equation}
+
+
+For each ion, we have to calculate $\langle L,\,m_{l}\rvert G_{6}^{0}\lvert L,\,m_{l}\rangle$
+and then calulate $\{3,2...\}V_{6}^{0}\{3,2...\}$. Fortunately, the
+result $\gamma_{6}=\frac{4}{3861}r^{6}$ holds for all rare earth
+ions. Thus, we arrive at the general formula for $\theta_6$:
+
+\begin{equation}
+\theta_{6}=\frac{\{3,2...\}V_{6}^{0}\{3,2...\}}{\langle L,\,m_{l}\rvert O_{6}^{0}\lvert L,\,m_{l}\rangle}\,\frac{4}{3861}.
+\end{equation}
+
+
+
+\bibliography{RE_Kag_CEF}
+
+
+\end{document}

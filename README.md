@@ -7,6 +7,11 @@ Created by Allen Scheie
 
 Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
 
+### Update (Mar. 13, 2020) to version 2.1
+
+Added importCIF function which imports a crystal structure from a .cif file, orients the axes along the appropriate symmetry-defined directions, and calculates a point charge model.
+It returns a Ligands object and a CFLevels object for further adjustments or fitting.
+
 ### Update (Dec. 19, 2019) to version 2.0
 
 Optimized the PyCrystalField neutron spectrum function for the effective J basis so that it runs over an order of magnitude faster. Fits that previously took 40 minutes now take 4 minutes.

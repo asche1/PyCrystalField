@@ -157,7 +157,7 @@ def FindPointGroupSymOps(self, ion):
 
 
 	## Print the X, Y and Z axes for the user
-	print("\n\033[104m",
+	print("\n\033[44m",
 		" Axes for point charge model (in ABC space):\n",
 		"       X axis =", XAXIS, '\n',
 		"       Y axis =", YAXIS, '\n',

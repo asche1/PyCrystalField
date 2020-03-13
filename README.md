@@ -10,7 +10,7 @@ Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalFie
 ### Update (Mar. 13, 2020) to version 2.1
 
 Added importCIF function which imports a crystal structure from a .cif file, orients the axes along the appropriate symmetry-defined directions, and calculates a point charge model.
-It returns a Ligands object and a CFLevels object for further adjustments or fitting.
+It returns a Ligands object and a CFLevels object for further adjustments or fitting. (Currently, it only works for rare earth ions.)
 
 ### Update (Dec. 19, 2019) to version 2.0
 

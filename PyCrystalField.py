@@ -7,9 +7,9 @@ import scipy.linalg as LA
 #from scipy.linalg import eig
 from scipy.special import wofz
 import sys, os
-from form_factors import RE_FormFactor
-import LatticeClass as lat
-from CreateFitFunction import makeFitFunction
+from pcf_lib.form_factors import RE_FormFactor
+import pcf_lib.LatticeClass as lat
+from pcf_lib.CreateFitFunction import makeFitFunction
 from numba import njit, jitclass
 
 # abspath = os.path.abspath(__file__)
@@ -330,7 +330,7 @@ def LS_StevensOp(L,S,n,m):
 
 directory = os.path.dirname(os.path.realpath(__file__))+'/'
 #Import prefactors
-coef = np.genfromtxt(directory+'TessHarmConsts.txt',delimiter = ',')
+coef = np.genfromtxt(directory+'pcf_lib/TessHarmConsts.txt',delimiter = ',')
 # Make into callable dictionary
 keys=[str(int(c[0]))+','+str(int(c[1])) for c in coef]
 prefac = dict(zip(keys,np.abs(coef[:,2])))
@@ -445,7 +445,7 @@ def TessHarm(n,m,x,y,z):
 
 #Import Radial Integrals
 radialI = {}
-for line in open(directory+'RadialIntegrals.txt'):
+for line in open(directory+'pcf_lib/RadialIntegrals.txt'):
     if not line.startswith('#'):
         l = line.split(',')
         radialI[l[0]] = [float(v) for v in l[1:]]
@@ -559,14 +559,17 @@ def LandeGFactor(ion):
 
 class Ligands:
     """For doing point-charge calculations"""
-    def __init__(self,ion,latticeParams,ionPos,ligandPos):
+    def __init__(self,ion,ligandPos, latticeParams=None, ionPos=[0,0,0]):
         """Creates array of ligand bonds in cartesian coordinates"""
         lp = latticeParams
-        if len(lp) != 6:
+        if lp == None:
+            self.latt = lat.lattice(1,1,1,90,90,90)
+        elif len(lp) != 6:
             raise LookupError("latticeParams needs to have 6 components: a,b,c,alpha,beta,gamma")
-        self.latt = lat.lattice(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5])
+        else:
+            self.latt = lat.lattice(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5])
 
-        self.bonds = np.array([O - ionPos for O in ligandPos])
+        self.bonds = np.array([O - np.array(ionPos) for O in ligandPos])
         self.bonds = self.latt.cartesian(self.bonds).astype('float')
         self.bondlen = np.linalg.norm(self.bonds, axis=1)
         self.ion = ion
@@ -2588,4 +2591,28 @@ def printLaTexCEFparams(Bs):
     print('\\end{tabular}\\end{ruledtabular}')
     print('\\label{flo:CEF_params}\n\\end{table}')
 
+#####################################################################################
+#####################################################################################
+
+### Import cif file (only works for rare earths now)
+
+from pcf_lib.cifsymmetryimport import FindPointGroupSymOps
+from pcf_lib.cif_import import CifFile
+
+def importCIF(ciffile, mag_ion):
+    '''Call this function to generate a PyCrystalField point charge model
+    from a cif file'''
+    cif = CifFile(ciffile)
+    for ii, at in enumerate(cif.unitcell):
+        if at[4] < 0: print('negative atom!',ii, at)
+    centralIon, ligandPositions, ligandCharge = FindPointGroupSymOps(cif, mag_ion)
+
+    Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
+    # Create a point charge model, assuming that a mirror plane has been found.
+    print('   Creating a point charge model...')
+    PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge[0], suppressminusm = True)
+
+    return Lig, PCM
+
+#####################################################################################
 #####################################################################################

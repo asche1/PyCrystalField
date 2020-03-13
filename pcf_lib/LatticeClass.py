@@ -50,6 +50,17 @@ class lattice:
 		else:
 			raise ValueError("vector must have three components") 
 
+
+	def ABC(self, vect):
+		"""Convert a vector from Cartesian Space to ABC space"""
+		matrix = np.array([self.a, self.b, self.c])
+
+		if vect.size == 3:
+			return np.dot(vect,np.linalg.inv(matrix))
+		else:
+			raise ValueError("vector must have three components") 
+
+
 	def inverseA(self,vect,norm=True):
 		"""Convert a vector from RLU space to inverse Aangstroms abs value"""
 		if vect.size == 3:

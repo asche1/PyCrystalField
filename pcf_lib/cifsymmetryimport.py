@@ -1,5 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from pcf_lib.cif_import import CifFile
+from pcf_lib.plotLigands import plotPCF
 
 # def importCIF(ciffile, mag_ion):
 # 	'''Call this function to generate a PyCrystalField point charge model
@@ -17,7 +19,7 @@ from pcf_lib.cif_import import CifFile
 # 	return Lig, PCM
 
 
-def FindPointGroupSymOps(self, ion):
+def FindPointGroupSymOps(self, ion, crystalImage = True):
 	# Step 1: identify the ion in the asymmetric unit cell
 	site = []
 	for i,auc in enumerate(self.asymunitcell):
@@ -40,7 +42,7 @@ def FindPointGroupSymOps(self, ion):
 		if np.all(new_at[2:5] == onesite[2:5]):
 			PGS.append(sy)
 
-	#print(PGS)
+	# print(PGS)
 	# Step 3: make the symmetry operations matrices and find the rotation axes
 	RotAngles = []
 	RotAxes = []
@@ -72,15 +74,21 @@ def FindPointGroupSymOps(self, ion):
 	try:
 		ZAXIS, YAXIS
 	except UnboundLocalError:
-		YAXIS = Mirrors[0]
-		perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-							self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
-		if np.sum(perpvec) == 0:
+		try:
+			YAXIS = Mirrors[0]
 			perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-				self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
-		ZAXIS = self.latt.ABC(perpvec)
-		print('   No mirror plane found orthogonal to rotation axis.\n',
-			'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+								self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
+			if np.sum(perpvec) == 0:
+				perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
+					self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
+			ZAXIS = self.latt.ABC(perpvec)
+			print('   No mirror plane found orthogonal to a rotation axis.\n',
+				'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+
+		except IndexError: # No mirrors and no rotations
+			print('    No mirror planes and no rotations in point group:', PGS)
+			YAXIS = np.array([0,1.,0])
+			ZAXIS = np.array([0,0,1.])
 
 	## Now, find the x axis as the cross product of the two
 	XAXIS = self.latt.ABC(np.cross(self.latt.cartesian(YAXIS), self.latt.cartesian(ZAXIS)))
@@ -123,8 +131,17 @@ def FindPointGroupSymOps(self, ion):
 	sortedNeighborArgs = np.argsort(distlist)
 
 	nearestNeighbors = []
-	nearestLigand = neighborlist[sortedNeighborArgs[0]][0]
-	for sna in sortedNeighborArgs:
+	### Find the nearest neighbor ligand that's not on the same site
+	jjj = 0
+	while True:
+		if neighborlist[sortedNeighborArgs[jjj]][1] > 1e-4:
+			nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
+			break
+		else:
+			jjj+=1
+
+	print(' Nearest ligand:', nearestLigand)
+	for sna in sortedNeighborArgs[jjj:]:
 		if neighborlist[sna][0] == nearestLigand:
 			nearestNeighbors.append(neighborlist[sna])
 		else: break
@@ -157,13 +174,16 @@ def FindPointGroupSymOps(self, ion):
 
 
 	## Print the X, Y and Z axes for the user
-	print("\n\033[44m",
+	print("\n\033[44m",    #95m
 		" Axes for point charge model (in ABC space):\n",
 		"       X axis =", XAXIS, '\n',
 		"       Y axis =", YAXIS, '\n',
 		"       Z axis =", ZAXIS,
 		"\033[0m\n" )
 
+
+	if crystalImage:
+		plotPCF(onesite, nearestNeighbors, XAXIS, YAXIS, ZAXIS)
 
 	return centralIon, ligandPositions, ligandCharge
 
@@ -174,6 +194,8 @@ def FindPointGroupSymOps(self, ion):
 def findRotationAxis(self, matrix):
 	'''For a given transformation matrix, find the rotation angle and axis 
 	if it's a rotation maxtrix, and the mirror plane if it's a mirror matrix.'''
+	if np.all(matrix == np.identity(3)):
+		return ['identity']
 	determinant = np.linalg.det(matrix)
 	if determinant == 1:   # otherwise it's a reflection
 		## The rotation angle can be found by the following formula: Trace(m)=1+2 cos(theta)

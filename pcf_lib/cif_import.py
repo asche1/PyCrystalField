@@ -38,7 +38,8 @@ class CifFile:
 				line = lines[i]
 				sites = []
 				jj = 0   # index for keeping track of labels
-				while (line != " \r\n" and line != "\r\n" and line !='\n' and line !=' \n' and line !='loop_\n'): #loop until we hit a blank spot
+				while (line != " \r\n" and line != "\r\n" and line !='\n' 
+						and line !=' \n' and line !='loop_\n' and not line.startswith('#')): #loop until we hit a blank spot
 					if '_atom' in line:
 						sitesymorder = None
 						if 'atom_site_fract_x' in line:

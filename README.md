@@ -12,6 +12,8 @@ Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalFie
 Added importCIF function which imports a crystal structure from a .cif file, orients the axes along the appropriate symmetry-defined directions, and calculates a point charge model.
 It returns a Ligands object and a CFLevels object for further adjustments or fitting. (Currently, it only works for rare earth ions.)
 
+Also allows the user to specify the axes if the ion is too low-symmetry for PyCrystalField to identify a natural z axis.
+
 ### Update (Dec. 19, 2019) to version 2.0
 
 Optimized the PyCrystalField neutron spectrum function for the effective J basis so that it runs over an order of magnitude faster. Fits that previously took 40 minutes now take 4 minutes.

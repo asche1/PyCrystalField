@@ -2599,18 +2599,18 @@ def printLaTexCEFparams(Bs):
 from pcf_lib.cifsymmetryimport import FindPointGroupSymOps
 from pcf_lib.cif_import import CifFile
 
-def importCIF(ciffile, mag_ion):
+def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
     for ii, at in enumerate(cif.unitcell):
         if at[4] < 0: print('negative atom!',ii, at)
-    centralIon, ligandPositions, ligandCharge = FindPointGroupSymOps(cif, mag_ion)
+    centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cif, mag_ion, Zaxis, Yaxis)
 
     Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
     # Create a point charge model, assuming that a mirror plane has been found.
     print('   Creating a point charge model...')
-    PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge[0], suppressminusm = True)
+    PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge[0], suppressminusm = inv)
 
     return Lig, PCM
 

@@ -19,7 +19,7 @@ from pcf_lib.plotLigands import plotPCF
 # 	return Lig, PCM
 
 
-def FindPointGroupSymOps(self, ion, crystalImage = True):
+def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = True):
 	# Step 1: identify the ion in the asymmetric unit cell
 	site = []
 	for i,auc in enumerate(self.asymunitcell):
@@ -44,6 +44,7 @@ def FindPointGroupSymOps(self, ion, crystalImage = True):
 
 	# print(PGS)
 	# Step 3: make the symmetry operations matrices and find the rotation axes
+	inversion = False  #this is so that PyCrystalField knows whether to include -m terms
 	RotAngles = []
 	RotAxes = []
 	Mirrors = []
@@ -56,39 +57,72 @@ def FindPointGroupSymOps(self, ion, crystalImage = True):
 			RotAxes.append(rotmir[2])
 		elif rotmir[0] == 'mirr':
 			Mirrors.append(rotmir[1].flatten())
+		elif rotmir[0] == 'inversion':
+			inversion = True
 
-	# Step 4: Find the highest-fold rotation axes, and set to Z axis
-	try:
-		ZAXIS =  RotAxes[np.argmax(RotAngles)]
-		print('   Found',int(np.around(np.max(RotAngles),0)),'fold axis about',ZAXIS)
 
-			# Step 5: find a mirror plane orthogonal to the rotation axis and set to be the Y axis
+	## Step 3a: identify the axes
+	if Zaxis == None and Yaxis == None:
+
+		# Step 4: Find the highest-fold rotation axes, and set to Z axis
+		try:
+			ZAXIS =  RotAxes[np.argmax(RotAngles)]
+			print('   Found',int(np.around(np.max(RotAngles),0)),'fold axis about',ZAXIS)
+
+				# Step 5: find a mirror plane orthogonal to the rotation axis and set to be the Y axis
+			for i, M in enumerate(Mirrors):
+				if np.dot(self.latt.cartesian(M),self.latt.cartesian(ZAXIS)) == 0:
+					YAXIS = M
+					print('   Found mirror plane:',YAXIS)
+					break
+		except ValueError: pass
+
+
+		try:
+			ZAXIS, YAXIS
+		except UnboundLocalError:
+			try:
+				YAXIS = Mirrors[0]
+				perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
+									self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
+				if np.sum(perpvec) == 0:
+					perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
+						self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
+				ZAXIS = self.latt.ABC(perpvec)
+				print('   No mirror plane found orthogonal to a rotation axis.\n',
+					'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+
+			except IndexError: # No mirrors and no rotations
+				print('    No mirror planes and no rotations in point group:', PGS)
+				YAXIS = np.array([0,1.,0])
+				ZAXIS = np.array([0,0,1.])
+
+	elif Yaxis == None:  # User specified Z axis, but not Y axis
+		ZAXIS = np.array(Zaxis)/ np.linalg.norm(Zaxis)
 		for i, M in enumerate(Mirrors):
 			if np.dot(self.latt.cartesian(M),self.latt.cartesian(ZAXIS)) == 0:
 				YAXIS = M
 				print('   Found mirror plane:',YAXIS)
 				break
-	except ValueError: pass
 
-
-	try:
-		ZAXIS, YAXIS
-	except UnboundLocalError:
-		try:
-			YAXIS = Mirrors[0]
-			perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-								self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
+		try: YAXIS
+		except UnboundLocalError:
+			print('   No mirror plane found orthogonal to the given Z axis axis.\n',
+					'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+			perpvec = np.cross(self.latt.cartesian(ZAXIS), 
+									self.latt.cartesian(ZAXIS+np.array([-1,0,0])))
 			if np.sum(perpvec) == 0:
-				perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-					self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
+					perpvec = np.cross(self.latt.cartesian(ZAXIS), 
+						self.latt.cartesian(ZAXIS+np.array([0,0,-1])))
 			ZAXIS = self.latt.ABC(perpvec)
-			print('   No mirror plane found orthogonal to a rotation axis.\n',
-				'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
 
-		except IndexError: # No mirrors and no rotations
-			print('    No mirror planes and no rotations in point group:', PGS)
-			YAXIS = np.array([0,1.,0])
-			ZAXIS = np.array([0,0,1.])
+	else:
+		print('    User-specifyied axes...')
+		cartYax = self.latt.cartesian(np.array(Yaxis))
+		cartZax = self.latt.cartesian(np.array(Zaxis))
+		ZAXIS = np.array(Zaxis)/ np.linalg.norm(Zaxis)
+		YAXIS = self.latt.ABC(cartYax/np.linalg.norm(cartYax) -\
+					 cartZax*np.dot(cartYax, cartZax))
 
 	## Now, find the x axis as the cross product of the two
 	XAXIS = self.latt.ABC(np.cross(self.latt.cartesian(YAXIS), self.latt.cartesian(ZAXIS)))
@@ -185,7 +219,7 @@ def FindPointGroupSymOps(self, ion, crystalImage = True):
 	if crystalImage:
 		plotPCF(onesite, nearestNeighbors, XAXIS, YAXIS, ZAXIS)
 
-	return centralIon, ligandPositions, ligandCharge
+	return centralIon, ligandPositions, ligandCharge, inversion
 
 
 
@@ -196,6 +230,8 @@ def findRotationAxis(self, matrix):
 	if it's a rotation maxtrix, and the mirror plane if it's a mirror matrix.'''
 	if np.all(matrix == np.identity(3)):
 		return ['identity']
+	elif np.all(matrix == -np.identity(3)):
+		return ['inversion']
 	determinant = np.linalg.det(matrix)
 	if determinant == 1:   # otherwise it's a reflection
 		## The rotation angle can be found by the following formula: Trace(m)=1+2 cos(theta)

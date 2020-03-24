@@ -57,8 +57,9 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 			RotAxes.append(rotmir[2])
 		elif rotmir[0] == 'mirr':
 			Mirrors.append(rotmir[1].flatten())
-		elif rotmir[0] == 'inversion':
 			inversion = True
+		# elif rotmir[0] == 'inversion': pass
+			
 
 
 	## Step 3a: identify the axes
@@ -96,6 +97,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 				print('    No mirror planes and no rotations in point group:', PGS)
 				YAXIS = np.array([0,1.,0])
 				ZAXIS = np.array([0,0,1.])
+				inversion= False
 
 	elif Yaxis == None:  # User specified Z axis, but not Y axis
 		ZAXIS = np.array(Zaxis)/ np.linalg.norm(Zaxis)
@@ -107,14 +109,15 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 
 		try: YAXIS
 		except UnboundLocalError:
-			print('   No mirror plane found orthogonal to the given Z axis axis.\n',
-					'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+			print('   \033[43m WARNING: No mirror plane found orthogonal to the given Z axis axis.\n',
+					'     User should specify the Y axis, but PyCrystalField will make a guess... \033[0m')
 			perpvec = np.cross(self.latt.cartesian(ZAXIS), 
 									self.latt.cartesian(ZAXIS+np.array([-1,0,0])))
 			if np.sum(perpvec) == 0:
 					perpvec = np.cross(self.latt.cartesian(ZAXIS), 
 						self.latt.cartesian(ZAXIS+np.array([0,0,-1])))
-			ZAXIS = self.latt.ABC(perpvec)
+			YAXIS = self.latt.ABC(perpvec)
+			inversion= False
 
 	else:
 		print('    User-specifyied axes...')
@@ -123,6 +126,15 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 		ZAXIS = np.array(Zaxis)/ np.linalg.norm(Zaxis)
 		YAXIS = self.latt.ABC(cartYax/np.linalg.norm(cartYax) -\
 					 cartZax*np.dot(cartYax, cartZax))
+
+		mirrorAlongY = False
+		for MM in Mirrors:
+			if np.all(np.cross(YAXIS,MM) == 0): 
+				print("    There's a mirror plane orthogonal to the specified Y axis. Suppressing -m terms.")
+				mirrorAlongY = True
+		if not mirrorAlongY: 
+			# print("    No mirror plane orthogonal to the specified Y axis.")
+			inversion=False
 
 	## Now, find the x axis as the cross product of the two
 	XAXIS = self.latt.ABC(np.cross(self.latt.cartesian(YAXIS), self.latt.cartesian(ZAXIS)))
@@ -218,6 +230,10 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 
 	if crystalImage:
 		plotPCF(onesite, nearestNeighbors, XAXIS, YAXIS, ZAXIS)
+
+	if not inversion:
+		print('     \033[43m WARNING: there is no mirror symmetry along the Y axis, so \n'+
+			'\033[0m     \033[43m   we must inlcude the -m terms, and the eigenkets will be complex.\033[0m\n')
 
 	return centralIon, ligandPositions, ligandCharge, inversion
 

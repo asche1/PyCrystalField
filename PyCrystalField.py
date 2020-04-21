@@ -10,6 +10,7 @@ import sys, os
 from pcf_lib.form_factors import RE_FormFactor
 import pcf_lib.LatticeClass as lat
 from pcf_lib.CreateFitFunction import makeFitFunction
+from pcf_lib.plotLigands import exportLigandCif
 from numba import njit, jitclass
 
 # abspath = os.path.abspath(__file__)
@@ -611,6 +612,9 @@ class Ligands:
             return np.dot(rotmatrix, np.dot(matrixin, rotmatrix.transpose() ))
 
 
+    def exportCif(self, filename):
+        exportLigandCif(self, filename)
+
 
     def PointChargeModel(self, symequiv=None, LigandCharge=-2,IonCharge=3, printB = True, 
                             suppressminusm = False, ionL=None):
@@ -626,7 +630,13 @@ class Ligands:
 
         if symequiv == None:
             # charge = IonCharge*[LigandCharge]*len(self.bonds)
-            charge = [LigandCharge]*len(self.bonds)
+            try:
+                if len(LigandCharge) == len(self.bonds):
+                    charge = LigandCharge
+                else:
+                    charge = [LigandCharge]*len(self.bonds)
+            except TypeError:
+                charge = [LigandCharge]*len(self.bonds)
 
         else:
             charge = [0]*len(self.bonds)
@@ -707,7 +717,13 @@ class Ligands:
         return newH, finalvals
 
 
+
+
+
 #######################################################################################
+
+
+
 
 
 class CFLevels:
@@ -722,6 +738,19 @@ class CFLevels:
             self.opttran = opttransition(Operator.Jx(self.J).O, Operator.Jy(self.J).O.imag, Operator.Jz(self.J).O)
         except TypeError: pass
 
+    @classmethod
+    def Bdict(cls, ion, Bdict):
+        ionJ = Jion[ion][-1]
+        Stev_O = []
+        Parameters = []
+        for Bnm in Bdict:
+            Parameters.append(Bdict[Bnm])
+            n = int(Bnm[1])
+            m = int(Bnm[2:])
+            Stev_O.append(  StevensOp(ionJ,n,m)  )
+
+        newcls = cls(Stev_O, Parameters)
+        return newcls
 
     @classmethod
     def Hamiltonian(cls, Hamil):
@@ -1883,6 +1912,22 @@ class LS_CFLevels:
         self.Jyg0 = g0*Sy + Ly
         self.Jzg0 = g0*Sz + Lz
 
+
+    @classmethod
+    def Bdict(cls,  Bdict, L, S, SpinOrbitCoupling):
+        '''Bdict must be a dictionary of labels and coefficients.
+        Example: {'B20':-0.340}'''
+        Stev_O = []
+        Parameters = []
+        for Bnm in Bdict:
+            Parameters.append(Bdict[Bnm])
+            n = int(Bnm[1])
+            m = int(Bnm[2:])
+            Stev_O.append(  LS_StevensOp(L,S,n,m)  )
+
+        newcls = cls(Stev_O, Parameters, L, S, SpinOrbitCoupling)
+        return newcls
+
     @classmethod
     def Hamiltonian(cls, CEF_Hamil, SOC_Hamil, L, S):
         newcls = cls([0,0],[0,0], L, S, 0) # Create empty class so we can just define Hamiltonian
@@ -2599,18 +2644,24 @@ def printLaTexCEFparams(Bs):
 from pcf_lib.cifsymmetryimport import FindPointGroupSymOps
 from pcf_lib.cif_import import CifFile
 
-def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None):
+def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, crystalImage=False, NumIonNeighbors=1,
+                        ForceImaginary=False):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
     for ii, at in enumerate(cif.unitcell):
         if at[4] < 0: print('negative atom!',ii, at)
-    centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cif, mag_ion, Zaxis, Yaxis)
+    centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cif, mag_ion, Zaxis, 
+                                                                Yaxis, crystalImage, NumIonNeighbors)
+    # print(ligandCharge)
 
     Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
     # Create a point charge model, assuming that a mirror plane has been found.
     print('   Creating a point charge model...')
-    PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge[0], suppressminusm = inv)
+    if ForceImaginary:
+        PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
+    else:
+        PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
 
     return Lig, PCM
 

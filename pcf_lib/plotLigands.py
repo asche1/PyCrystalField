@@ -86,3 +86,42 @@ class atomplot:
 		return np.dot(vect, self.plotX), np.dot(vect, self.plotY)
 
 
+
+
+def exportLigandCif(self, filename):
+	'''Takes a PyCrystalField Ligands object and exports a cif file with only the 
+	central ion and the nearest neighbor ligands.'''
+	if not filename.endswith('.cif'):
+		filename = filename + '.cif' 
+
+	with open(filename, 'w') as f:
+		f.write('# Output from PyCrystalField showing the ligand environment\n\n')
+		f.write('loop_\n'+\
+				'_publ_author_name\n'+\
+				"'Someone, A.'\n"+\
+				"'Someone, B.'\n"+
+				'_cell_length_a 10.0\n'+\
+				'_cell_length_b 10.0\n'+\
+				'_cell_length_c 10.0\n'+\
+				'_cell_angle_alpha 90.\n'+\
+				'_cell_angle_beta 90.\n'+\
+				'_cell_angle_gamma 90.\n'+\
+				'_cell_volume 1000.0\n'+\
+				"_symmetry_space_group_name_H-M 'P 1'\n"+\
+				'loop_\n'+\
+				'_symmetry_equiv_pos_site_id\n'+\
+				'_symmetry_equiv_pos_as_xyz\n'+\
+				"1 'x, y, z'\n"+\
+				'loop_\n'+\
+				'_atom_type_symbol\n'+\
+				self.ion + '\n'+\
+				'S2-\n'+\
+				'loop_\n'+\
+				'_atom_site_label\n'+\
+				'_atom_site_fract_x\n'+\
+				'_atom_site_fract_y\n'+\
+				'_atom_site_fract_z\n'+\
+				'_atom_site_occupancy\n'+\
+				self.ion +' 0.5 0.5 0.5 1. \n')
+		for b in self.bonds:
+			f.write('S1 '+ ' '.join([str(bi/10+0.5) for bi in b])+ ' 1. \n')

@@ -19,7 +19,8 @@ from pcf_lib.plotLigands import plotPCF
 # 	return Lig, PCM
 
 
-def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = True):
+def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = False, 
+						NumIonNeighbors = 3):
 	# Step 1: identify the ion in the asymmetric unit cell
 	site = []
 	for i,auc in enumerate(self.asymunitcell):
@@ -63,7 +64,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 
 
 	## Step 3a: identify the axes
-	if Zaxis == None and Yaxis == None:
+	if np.any(Zaxis == None) and np.any(Yaxis == None):
 
 		# Step 4: Find the highest-fold rotation axes, and set to Z axis
 		try:
@@ -91,6 +92,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 						self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
 				ZAXIS = self.latt.ABC(perpvec)
 				print('   No mirror plane found orthogonal to a rotation axis.\n',
+					'     Found mirror plane at', YAXIS, '\n'
 					'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
 
 			except IndexError: # No mirrors and no rotations
@@ -100,7 +102,8 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 				inversion= False
 
 	elif Yaxis == None:  # User specified Z axis, but not Y axis
-		ZAXIS = np.array(Zaxis)/ np.linalg.norm(Zaxis)
+		ZAXIS = np.array(Zaxis) #np.array(Zaxis)/ np.linalg.norm(Zaxis)
+		print('Given Z axis:', ZAXIS)
 		for i, M in enumerate(Mirrors):
 			if np.dot(self.latt.cartesian(M),self.latt.cartesian(ZAXIS)) == 0:
 				YAXIS = M
@@ -138,9 +141,9 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 
 	## Now, find the x axis as the cross product of the two
 	XAXIS = self.latt.ABC(np.cross(self.latt.cartesian(YAXIS), self.latt.cartesian(ZAXIS)))
-	XAXIS /= np.linalg.norm(XAXIS)
-	YAXIS /= np.linalg.norm(YAXIS)
-	ZAXIS /= np.linalg.norm(ZAXIS)
+	XAXIS = XAXIS/np.linalg.norm(XAXIS)
+	YAXIS = YAXIS/np.linalg.norm(YAXIS)
+	ZAXIS = ZAXIS/np.linalg.norm(ZAXIS)
 
 	cartXAXIS = self.latt.cartesian(XAXIS)
 	cartXAXIS /= np.linalg.norm(cartXAXIS)
@@ -166,34 +169,59 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 	distlist = []
 	for ii, at in enumerate(self.unitcell):
 		if at[4] < 0: print('negative atom!',ii, at)
-		if ion not in at[0]:
-			for ucs in unitcellshifts:
-				distVec0 = self.latt.cartesian(np.array(onesite[2:5]) - (np.array(at[2:5]) + ucs))
-				neighborlist.append([at[1], np.linalg.norm(distVec0), distVec0])
-				distlist.append(np.linalg.norm(distVec0))
+		#if ion not in at[0]:
+		for ucs in unitcellshifts:
+			distVec0 = self.latt.cartesian(np.array(onesite[2:5]) - (np.array(at[2:5]) + ucs))
+			neighborlist.append([at[1], np.linalg.norm(distVec0), distVec0])
+			distlist.append(np.linalg.norm(distVec0))
 
 	
 	# Step 2: sort the list in ascending order
 	sortedNeighborArgs = np.argsort(distlist)
 
 	nearestNeighbors = []
-	### Find the nearest neighbor ligand that's not on the same site
-	jjj = 0
-	while True:
+	### Find the nearest neighbor ligands that are not on the same site
+	jjj, kkk = 0,0
+	NNLigandList = []
+	while len(NNLigandList) < NumIonNeighbors:
 		if neighborlist[sortedNeighborArgs[jjj]][1] > 1e-4:
-			nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
-			break
-		else:
-			jjj+=1
+			#nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
+			#break
+			try:
+				if neighborlist[sortedNeighborArgs[jjj]][0] == NNLigandList[-1]:
+					pass
+				else:
+					NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
+			except IndexError:  NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
+			# print(neighborlist[sortedNeighborArgs[jjj]][0], NNLigandList)
+		else: 
+			kkk += 1   #for keeping track of where the first ligand is.
+		jjj+=1
 
-	print(' Nearest ligand:', nearestLigand)
-	for sna in sortedNeighborArgs[jjj:]:
-		if neighborlist[sna][0] == nearestLigand:
+
+	for i in range(NumIonNeighbors):
+		print(' Next'*i+' Nearest ligand:', NNLigandList[i])
+	#nearestLigand = NNLigandList[0]
+	addedLigands = []
+	for sna in sortedNeighborArgs[kkk:]:
+		#if neighborlist[sna][0] == nearestLigand:
+		if neighborlist[sna][0] in NNLigandList:
+
+			try:
+				if neighborlist[sna][0] == addedLigands[-1]: 
+					pass
+				else: addedLigands.append(neighborlist[sna][0])
+			except IndexError:
+				addedLigands.append(neighborlist[sna][0])
+			if (len(addedLigands) > NumIonNeighbors): 
+				break
 			nearestNeighbors.append(neighborlist[sna])
 		else: break
+		#if len(nearestNeighbors) >= jjj: break
 
-	
-	print('   Identified',len(nearestNeighbors),nearestNeighbors[0][0],'ligands.')
+	for i in range(len(list(set(NNLigandList)))):
+		numN = [nn[0] for nn in nearestNeighbors].count(NNLigandList[i])
+		print('   Identified', numN, NNLigandList[i],'ligands.')
 
 	## Step 3: rotate local axes so z axis is along the axis identified above
 	ligandPositions = []
@@ -222,9 +250,9 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = T
 	## Print the X, Y and Z axes for the user
 	print("\n\033[44m",    #95m
 		" Axes for point charge model (in ABC space):\n",
-		"       X axis =", XAXIS, '\n',
-		"       Y axis =", YAXIS, '\n',
-		"       Z axis =", ZAXIS,
+		"       X axis =", XAXIS/np.max(np.abs(XAXIS)), '\n',
+		"       Y axis =", YAXIS/np.max(np.abs(YAXIS)), '\n',
+		"       Z axis =", ZAXIS/np.max(np.abs(ZAXIS)),
 		"\033[0m\n" )
 
 

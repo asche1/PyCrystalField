@@ -663,6 +663,8 @@ class Ligands:
 
         self.H = np.zeros((int(2*ionJ+1), int(2*ionJ+1)),dtype = complex)
         self.B = []
+        OOO = []
+        nonzeroB = []
 
         if self.suppressmm == False:  nmrange = [[n,m] for n in range(2,8,2) for m in range(-n,n+1)]
         elif self.suppressmm == True:   nmrange = [[n,m] for n in range(2,8,2) for m in range(0,n+1)]
@@ -678,13 +680,19 @@ class Ligands:
             # 2)  Compute CEF parameter
             B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegral(ion,n) * theta(ion,n)
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
+            if np.around(B,decimals=7) != 0:
+                OOO.append(StevensOp(ionJ,n,m))
+                nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
             self.H += B*StevensOp(ionJ,n,m)
             self.B.append(B)
         self.B = np.array(self.B)
 
-        return CFLevels.Hamiltonian(self.H)
+        newobj = CFLevels.Hamiltonian(self.H)
+        newobj.O = OOO
+        newobj.B = nonzeroB
+        return newobj
 
 
 
@@ -732,7 +740,7 @@ class CFLevels:
         """add Stevens operators to make a single hamiltonian matrix"""
         self.H = np.sum([a*b for a,b in zip(StevensOperators, Parameters)], axis=0)
         self.O = StevensOperators  #save these for a fit
-        self.Ci = Parameters
+        self.B = Parameters
         try:
             self.J = (len(self.H) -1.)/2
             self.opttran = opttransition(Operator.Jx(self.J).O, Operator.Jy(self.J).O.imag, Operator.Jz(self.J).O)
@@ -760,6 +768,11 @@ class CFLevels:
         newcls.opttran = opttransition(Operator.Jx(newcls.J).O.real, Operator.Jy(newcls.J).O.imag, Operator.Jz(newcls.J).O.real)
         return newcls
 
+
+    def newCoeff(self, newcoeff):
+        newH = np.sum([a*b for a,b in zip(self.O, newcoeff)], axis=0)
+        self.diagonalize(newH)
+
     def diagonalize(self, Hamiltonian=None):
         """A Hamiltonian can be passed to the function (used for data fits)
         or the initially defined hamiltonian is used."""
@@ -767,7 +780,9 @@ class CFLevels:
             Hamiltonian = self.H
         else:
             self.H = Hamiltonian
-        diagonalH = LA.eigh(Hamiltonian)
+        # diagonalH = LA.eigh(Hamiltonian)  #This was slower and less precise
+        bands = self._findbands(Hamiltonian)
+        diagonalH = LA.eig_banded(bands, lower=True)
 
         #self.eigenvaluesNoNorm = diagonalH[0]
         self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
@@ -815,8 +830,14 @@ class CFLevels:
     def neutronSpectrum(self, Earray, Temp, Ei, ResFunc, gamma = 0):
         # make angular momentum ket object
         #eigenkets = [Ket(ei) for ei in self.eigenvectors]
-        eigenkets = self.eigenvectors.real
-        intensity = np.zeros(len(Earray))
+
+        try:
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+        except AttributeError:
+            self.diagonalize()
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
 
         # for population factor weights
         beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
@@ -852,8 +873,13 @@ class CFLevels:
         '''1D neutron spectrum without the Kf/Ki correction'''
         # make angular momentum ket object
         # eigenkets = [Ket(ei) for ei in self.eigenvectors]
-        eigenkets = self.eigenvectors.real
-        intensity = np.zeros(len(Earray))
+        try:
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+        except AttributeError:
+            self.diagonalize()
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
 
         # for population factor weights
         beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
@@ -928,6 +954,11 @@ class CFLevels:
 
     def printEigenvectors(self):
         '''prints eigenvectors and eigenvalues in a matrix'''
+        try:
+            eigenkets = self.eigenvectors.real
+        except AttributeError:
+            self.diagonalize()
+
         print('\n Eigenvalues \t Eigenvectors')
         print('\t\t'+'-------'*(len(self.eigenvalues)+1))
         sortinds = self.eigenvalues.argsort()
@@ -1213,8 +1244,8 @@ class CFLevels:
         '''fits data to CEF parameters'''
 
         # define parameters
-        # if len(self.Ci) != len(kwargs['coeff']):
-        #     raise ValueError('coeff needs to have the same length as self.Ci')
+        # if len(self.B) != len(kwargs['coeff']):
+        #     raise ValueError('coeff needs to have the same length as self.B')
 
         # Define function to be fit
         fun, p0, resfunc = makeFitFunction(chisqfunc, fitargs, **dict(kwargs, CFLevelsObject=self) )
@@ -1792,6 +1823,8 @@ class LS_Ligands:
 
         H = np.zeros((int(2*self.ionL+1), int(2*self.ionL+1)),dtype = complex)
         self.B = []
+        OOO = []
+        nonzeroB = []
 
         TM_LStheta = {2: PFalpha(self.ionL,self.ionS,l,halffilled), 
                     4: PFbeta(self.ionL,self.ionS,l,halffilled)}
@@ -1812,6 +1845,9 @@ class LS_Ligands:
             # 2)  Compute CEF parameter
             B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegrals[n] * TM_LStheta[n]
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
+            if np.around(B,decimals=8) != 0:
+                OOO.append(StevensOp(self.ionL,n,m))
+                nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
             H += B*StevensOp(self.ionL,n,m)
@@ -1824,8 +1860,10 @@ class LS_Ligands:
         self.H_CEF.O = H_CEF_O
 
         #self.H = self.H_CEF + self.H_LS
-
-        return LS_CFLevels.Hamiltonian(self.H_CEF, self.H_SOC, self.ionL, self.ionS)
+        newobj = LS_CFLevels.Hamiltonian(self.H_CEF, self.H_SOC, self.ionL, self.ionS)
+        newobj.O = OOO
+        newobj.B = nonzeroB
+        return newobj
 
 
 
@@ -1884,7 +1922,7 @@ class LS_CFLevels:
         #self.H_CEF.O = np.hstack(np.hstack(np.multiply.outer(HcefJ, np.identity(int(2*S+1)))))
         self.H_CEF.O = HcefJ
         self.O = StevensOperators  #save these for a fit
-        self.Ci = Parameters
+        self.B = Parameters
         self.S = S
         self.L = L
 
@@ -1952,6 +1990,11 @@ class LS_CFLevels:
     #     tol = 1e-15
     #     self.eigenvalues[abs(self.eigenvalues) < tol] = 0.0
     #     self.eigenvectors[abs(self.eigenvectors) < tol] = 0.0
+
+
+    def newCoeff(self, newcoeff):
+        newH = np.sum([a*b for a,b in zip(self.O, newcoeff)], axis=0)
+        self.diagonalize(newH)
 
 
     def diagonalize(self, CEF_Hamiltonian=None):
@@ -2074,6 +2117,11 @@ class LS_CFLevels:
 
     def printEigenvectors(self):
         '''prints eigenvectors and eigenvalues in a matrix'''
+        try:
+            eigenkets = self.eigenvectors.real
+        except AttributeError:
+            self.diagonalize()
+        
         print('\n Eigenvalues \t Eigenvectors')
         print('\t\t'+'-------'*(len(self.eigenvalues)+1))
         sortinds = self.eigenvalues.argsort()
@@ -2486,8 +2534,8 @@ class LS_CFLevels:
         print('Initial err=', initialChisq, '\n')
 
         # define parameters
-        if len(self.Ci) != len(kwargs['coeff']):
-            raise ValueError('coeff needs to have the same length as self.Ci')
+        if len(self.B) != len(kwargs['coeff']):
+            raise ValueError('coeff needs to have the same length as self.B')
 
         # Define function to be fit
         fun, p0, resfunc = makeFitFunction(chisqfunc, fitargs, **dict(kwargs, CFLevelsObject=self) )

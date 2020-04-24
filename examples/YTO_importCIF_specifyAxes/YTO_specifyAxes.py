@@ -10,7 +10,6 @@ import PyCrystalField as cef
 #    mirror plane (if one exists)
 # You can also specify the y axis if you want with "Yaxis = [ , , ]"
 YTOLig, Yb = cef.importCIF('yto.cif','Yb1', Zaxis = [1,1,0])
-Yb.diagonalize()
 
 ########### print eigenvectors
 

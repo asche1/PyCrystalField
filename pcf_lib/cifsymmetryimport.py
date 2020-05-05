@@ -104,8 +104,9 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 	elif Yaxis == None:  # User specified Z axis, but not Y axis
 		ZAXIS = np.array(Zaxis) #np.array(Zaxis)/ np.linalg.norm(Zaxis)
 		print('Given Z axis:', ZAXIS)
+		roundedCartesianZ = np.around(self.latt.cartesian(ZAXIS),4)
 		for i, M in enumerate(Mirrors):
-			if np.dot(self.latt.cartesian(M),self.latt.cartesian(ZAXIS)) == 0:
+			if np.dot(self.latt.cartesian(M),roundedCartesianZ) == 0:
 				YAXIS = M
 				print('   Found mirror plane:',YAXIS)
 				break

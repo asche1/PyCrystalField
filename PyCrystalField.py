@@ -1648,16 +1648,19 @@ class LSOperator():
 
 class LS_Ligands:
     """For doing point-charge calculations in LS basis"""
-    def __init__(self,ion,latticeParams,ionPos,ligandPos, SpinOrbitCoupling):
+    def __init__(self,ion, ligandPos, SpinOrbitCoupling, latticeParams=None, ionPos=[0,0,0]):
         """Creates array of ligand bonds in cartesian coordinates.
         'ion' can either be the name of the ion or a list specifying L and S."""
         lp = latticeParams
-        if len(lp) != 6:
+        if lp == None:
+            self.latt = lat.lattice(1,1,1,90,90,90)
+        elif len(lp) != 6:
             raise LookupError("latticeParams needs to have 6 components: a,b,c,alpha,beta,gamma")
-        self.latt = lat.lattice(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5])
+        else:
+            self.latt = lat.lattice(lp[0], lp[1], lp[2], lp[3], lp[4], lp[5])
 
-        self.bonds = np.array([O - ionPos for O in ligandPos])
-        self.bonds = self.latt.cartesian(self.bonds)
+        self.bonds = np.array([np.array(O) - np.array(ionPos) for O in ligandPos])
+        self.bonds = self.latt.cartesian(self.bonds).astype('float')
         self.bondlen = np.linalg.norm(self.bonds, axis=1)
 
         if isinstance(ion, str):
@@ -1732,13 +1735,29 @@ class LS_Ligands:
         except AttributeError:
             self.suppressmm = suppressminusm
 
+        # if symequiv == None:
+        #     charge = IonCharge*[LigandCharge]*len(self.bonds)
+        # else:
+        #     charge = [0]*len(self.bonds)
+        #     for i,se in enumerate(symequiv):
+        #         charge[i] = IonCharge*LigandCharge[se]
+        # self.symequiv = symequiv
+
         if symequiv == None:
-            charge = IonCharge*[LigandCharge]*len(self.bonds)
+            # charge = IonCharge*[LigandCharge]*len(self.bonds)
+            try:
+                if len(LigandCharge) == len(self.bonds):
+                    charge = LigandCharge
+                else:
+                    charge = [LigandCharge]*len(self.bonds)
+            except TypeError:
+                charge = [LigandCharge]*len(self.bonds)
+
         else:
             charge = [0]*len(self.bonds)
             for i,se in enumerate(symequiv):
-                charge[i] = IonCharge*LigandCharge[se]
-        self.symequiv = symequiv
+                #charge[i] = IonCharge*LigandCharge[se]
+                charge[i] = LigandCharge[se]
         
         ion=self.ion
         # ionS = Jion[ion][0]
@@ -1793,7 +1812,7 @@ class LS_Ligands:
                         symequiv=None, LigandCharge= -2, IonCharge=1,
                         printB = True, suppressminusm = False):
         ''' For transition metals:
-        Create point charge model of the crystal fields of a rare-earth ion.
+        Create point charge model of the crystal fields.
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
 
@@ -1803,13 +1822,31 @@ class LS_Ligands:
         except AttributeError:
             self.suppressmm = suppressminusm
 
+        # if symequiv == None:
+        #     charge = [LigandCharge]*len(self.bonds)
+        # else:
+        #     charge = [0]*len(self.bonds)
+        #     for i,se in enumerate(symequiv):
+        #         charge[i] = LigandCharge[se]
+        # self.symequiv = symequiv
+
+
         if symequiv == None:
-            charge = [LigandCharge]*len(self.bonds)
+            # charge = IonCharge*[LigandCharge]*len(self.bonds)
+            try:
+                if len(LigandCharge) == len(self.bonds):
+                    charge = LigandCharge
+                else:
+                    charge = [LigandCharge]*len(self.bonds)
+            except TypeError:
+                charge = [LigandCharge]*len(self.bonds)
+
         else:
             charge = [0]*len(self.bonds)
             for i,se in enumerate(symequiv):
+                #charge[i] = IonCharge*LigandCharge[se]
                 charge[i] = LigandCharge[se]
-        self.symequiv = symequiv
+
 
         # # print factors used:
         # print "#---------------------------------------"
@@ -2684,6 +2721,9 @@ def printLaTexCEFparams(Bs):
     print('\\end{tabular}\\end{ruledtabular}')
     print('\\label{flo:CEF_params}\n\\end{table}')
 
+
+
+
 #####################################################################################
 #####################################################################################
 
@@ -2692,8 +2732,8 @@ def printLaTexCEFparams(Bs):
 from pcf_lib.cifsymmetryimport import FindPointGroupSymOps
 from pcf_lib.cif_import import CifFile
 
-def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, crystalImage=False, NumIonNeighbors=1,
-                        ForceImaginary=False):
+def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, LS_Coupling = None,
+                crystalImage=False, NumIonNeighbors=1, ForceImaginary=False):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
@@ -2703,7 +2743,11 @@ def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, crystalImage=False, 
                                                                 Yaxis, crystalImage, NumIonNeighbors)
     # print(ligandCharge)
 
-    Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
+    if LS_Coupling:
+        Lig = LS_Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions, 
+                        SpinOrbitCoupling=LS_Coupling)
+    else:
+        Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
     # Create a point charge model, assuming that a mirror plane has been found.
     print('   Creating a point charge model...')
     if ForceImaginary:

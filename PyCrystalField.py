@@ -695,9 +695,13 @@ class Ligands:
         return newobj
 
 
-
     def FitChargesNeutrons(self, chisqfunc, fitargs, method='Powell', **kwargs):
-        '''fits neutron data'''
+        '''This is the old name. I keep it around so that the original code 
+        will run with it.'''
+        return self.FitCharges(chisqfunc, fitargs, method='Powell', **kwargs)
+
+    def FitCharges(self, chisqfunc, fitargs, method='Powell', **kwargs):
+        '''fits data'''
 
         # Define function to be fit
         fun, p0, resfunc = makeFitFunction(chisqfunc, fitargs, **dict(kwargs, LigandsObject=self) )
@@ -869,6 +873,41 @@ class CFLevels:
         kpoverk = np.sqrt((Ei - Earray)/Ei) #k'/k = sqrt(E'/E)
         return intensity * kpoverk
 
+
+    def neutronSpectrum_customLineshape(self, Earray, Temp, Ei, LineshapeFunc):
+        '''calculate neutron spectrum with a custom lineshape
+        which is a function of energy list and energy transfer.'''
+        # make angular momentum ket object
+        #eigenkets = [Ket(ei) for ei in self.eigenvectors]
+
+        try:
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+        except AttributeError:
+            self.diagonalize()
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+
+        # for population factor weights
+        beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
+        Z = sum([np.exp(-beta*en) for en in self.eigenvalues])
+
+        for i, ket_i in enumerate(eigenkets):
+            # compute population factor
+            pn = np.exp(-beta *self.eigenvalues[i])/Z
+            if pn > 1e-3:  #only compute for transitions with enough weight
+                for j, ket_j in enumerate(eigenkets):
+                    # compute amplitude
+                    #mJn = self._transition(ket_i,ket_j)   # Old: slow
+                    mJn = self.opttran.transition(ket_i,ket_j)
+                    deltaE = self.eigenvalues[j] - self.eigenvalues[i]
+                    intensity += ((pn * mJn * LineshapeFunc(Earray - deltaE,
+                                                            deltaE)).real).astype('float64')
+                
+        kpoverk = np.sqrt((Ei - Earray)/Ei) #k'/k = sqrt(E'/E)
+        return intensity * kpoverk
+
+
     def normalizedNeutronSpectrum(self, Earray, Temp, ResFunc, gamma = 0):
         '''1D neutron spectrum without the Kf/Ki correction'''
         # make angular momentum ket object
@@ -898,6 +937,37 @@ class CFLevels:
                     intensity += ((pn * mJn * self._voigt(x=Earray, x0=deltaE, alpha=GausWidth, 
                                                         gamma=gamma)).real).astype('float64')
         return intensity
+
+
+    def normalizedNeutronSpectrum_customLineshape(self, Earray, Temp, LineshapeFunc):
+        '''1D neutron spectrum without the Kf/Ki correction.
+        LineshapeFunc must be a function with arguments of energy list and 
+        central energy.'''
+        try:
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+        except AttributeError:
+            self.diagonalize()
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+
+        # for population factor weights
+        beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
+        Z = sum([np.exp(-beta*en) for en in self.eigenvalues])
+
+        for i, ket_i in enumerate(eigenkets):
+            # compute population factor
+            pn = np.exp(-beta *self.eigenvalues[i])/Z
+            if pn > 1e-3:  #only compute for transitions with enough weight
+                for j, ket_j in enumerate(eigenkets):
+                    # compute amplitude
+                    #mJn = self._transition(ket_i,ket_j)  # Old: slow
+                    mJn = self.opttran.transition(ket_i,ket_j)
+                    deltaE = self.eigenvalues[j] - self.eigenvalues[i]
+                    intensity += ((pn * mJn * LineshapeFunc(Earray - deltaE,
+                                                            deltaE)).real).astype('float64')
+        return intensity
+
 
 
     def neutronSpectrum2D(self, Earray, Qarray, Temp, Ei, ResFunc, gamma, DebyeWaller, Ion):
@@ -2726,6 +2796,18 @@ def printLaTexCEFparams(Bs):
 
 #####################################################################################
 #####################################################################################
+
+
+
+def WybourneToStevens(ion, Adict):
+    StevDict = {}
+    for Anm in Adict:
+        n = int(Anm[1])
+        m = int(Anm[2:])
+        StevDict['B'+Anm[1:]] = RadialIntegral(ion,n)*theta(ion,n)*Adict[Anm]
+    return StevDict
+
+
 
 ### Import cif file (only works for rare earths now)
 

@@ -7,6 +7,8 @@ Created by Allen Scheie
 
 Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
 
+#### For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
+
 ### Update (Mar. 13, 2020) to version 2.1
 
 Added importCIF function which imports a crystal structure from a .cif file, orients the axes along the appropriate symmetry-defined directions, and calculates a point charge model.

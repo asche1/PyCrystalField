@@ -69,7 +69,9 @@ class CifFile:
 						modsite.append(line.split()[-1])
 						sites.append(modsite)
 						i+=1
-					line = lines[i]
+					try:
+						line = lines[i]
+					except IndexError: break
 				i -=1
 
 			# Find the symmetry operations
@@ -86,6 +88,7 @@ class CifFile:
 					symops.append(line[quoteloc[0]+1:quoteloc[1]])
 					i+=1
 					line = lines[i]
+				i -= 1
 			i+=1
 
 		self.asymunitcell = list(sites)
@@ -338,16 +341,3 @@ class CifFile:
 	def _kvector(self,energy):
 		"""returns the wave vector of neutrons of a given energy"""
 		return 0.694693 * np.sqrt(energy)
-
-
-
-###############################################################################
-#Test with Yb2Ti2O7
-#YbTiO = CifFile("StoichiometricYbTiO.cif")
-#s_length = {'O2-': 5.803, 'Ti4+': -3.438, 'Yb3+': 12.43}
-#YbTiO.StructureFactor(s_length,5)
-#print(YbTiO.SF)
-#print(' ')
-#YbTiO.MultipleScattering(ei=1.0, threshold=0.1, peak = [0,0,2], xcut=np.array([1,1,1]), ycut = np.array([1,1,-2]))
-#print(' ')
-#YbTiO.MultipleScattering(ei=5, threshold=0.1, peak = [-4,2,2], xcut=np.array([1,-1,0]), ycut = np.array([1,1,-2]))

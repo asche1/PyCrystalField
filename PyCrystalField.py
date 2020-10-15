@@ -11,6 +11,10 @@ from pcf_lib.form_factors import RE_FormFactor
 import pcf_lib.LatticeClass as lat
 from pcf_lib.CreateFitFunction import makeFitFunction
 from pcf_lib.plotLigands import exportLigandCif
+from pcf_lib.Operators import Ket, Operator, LSOperator
+from pcf_lib.StevensOperators import StevensOp, LS_StevensOp
+from pcf_lib.PointChargeConstants import *
+from pcf_lib.PCF_misc_functions import *
 from numba import njit, jitclass
 
 # abspath = os.path.abspath(__file__)
@@ -19,521 +23,38 @@ from numba import njit, jitclass
 
 
 
-class Ket():
-    def __init__(self, array): 
-        """give an array which defines the angular momentum eigenket in terms 
-        of the available states. IE, write |1> + |2> as [0,0,0,1,1]"""
-        self.ket = np.array(array)
-        self.j = len(array)/2.0 - 0.5
-        self.m = np.arange(-self.j,self.j+1,1)
 
-    def Jz(self):
-        return Ket( self.ket * self.m )
-
-    def Jplus(self):
-        newvals = np.sqrt((self.j-self.m)*(self.j+self.m+1)) * self.ket
-        return Ket( np.roll(newvals,1) )
-
-    def Jminus(self):
-        newvals = np.sqrt((self.j+self.m)*(self.j-self.m+1)) * self.ket
-        return Ket( np.roll(newvals,-1) )
-
-    def Jx(self):
-        return Ket(0.5*(self.Jplus().ket + self.Jminus().ket) )
-
-    def Jy(self):
-        return Ket(-1j*0.5*(self.Jplus().ket - self.Jminus().ket) )
-
-    def R(self, alpha, beta, gamma):  # Rotation about general Euler Angles
-        return self._Rz(alpha)._Ry(beta)._Rz(gamma)
-
-    def _Rz(self,theta):  # Rotation about z axis
-        newvals = np.zeros(len(self.ket), dtype=complex)
-        for i in range(len(self.ket)):
-           newvals[i] = self.ket[i]* np.exp(-1j*self.m[i] * theta)
-        return Ket(newvals)
-
-    def _Ry(self,beta):  # Rotation about y axis
-        newvals = np.zeros(len(self.ket), dtype=complex)
-        for i in range(len(self.ket)):
-            mm = self.m[i]
-            for j in range(len(self.ket)):
-                mmp = self.m[j]
-                newvals[j] += self.ket[i]* self._WignersFormula(mm,mmp,beta)
-        return Ket(newvals)
-
-    def _WignersFormula(self,m,mp,beta):
-        """See Sakurai/Napolitano eq. 3.9.33. 
-        This function was cross-checked with Mathematica's WignerD function."""
-
-        # determine the limit of the sum over k
-        kmin = np.maximum(0, m-mp)
-        kmax = np.minimum(self.j+m, self.j-mp)
-
-        d = 0
-        for k in np.arange(kmin,kmax+1):
-            d += (-1)**(k-m+mp) * np.sqrt(np.math.factorial(self.j+m) * np.math.factorial(self.j-m) *\
-                                np.math.factorial(self.j+mp) * np.math.factorial(self.j-mp))/\
-                (np.math.factorial(self.j+m-k) * np.math.factorial(k) * np.math.factorial(self.j-k-mp)*\
-                 np.math.factorial(k-m+mp))*\
-                np.cos(beta/2)**(2*self.j -2*k+m-mp) * np.sin(beta/2)**(2*k-m+mp)
-        return d
-
-
-    def __mul__(self,other):
-        if isinstance(other, Ket):
-            # Compute inner product
-            return np.dot(np.conjugate(self.ket), other.ket)
-        else:
-            return Ket( np.dot(self.ket, other))
-
-    def __add__(self,other):
-        if isinstance(other, Ket):
-            return Ket(self.ket + other.ket)
-        else:
-            print("other is not a ket")
-
-        # def __rmul__(self,other):   #Doesn't work. not sure why.
-        # 	if isinstance(other, Ket):
-        # 		return np.vdot(other.ket, self.ket)
-        # 	else:  # if not ket, try matrix multiplication.
-        # 		#print "reverse multiply"
-        # 		return np.dot(other, self.ket)
-
-
-
-# spec = [
-#     ('O', float32[:,:]),               # a simple scalar field
-#     #('j', float32),
-#     ('m', float32[:]),          # an array field
-# ]
-
-# @jitclass(spec)  # Doesn't work
-class Operator():
-    def __init__(self, J):
-        self.O = np.zeros((int(2*J+1), int(2*J+1)))
-        self.m = np.arange(-J,J+1,1)
-        self.j = J
-
-    @staticmethod
-    def Jz(J):
-        obj = Operator(J)
-        for i in range(len(obj.O)):
-            for k in range(len(obj.O)):
-                if i == k:
-                    obj.O[i,k] = (obj.m[k])
-        return obj
-
-    @staticmethod
-    def Jplus(J):
-        obj = Operator(J)
-        for i in range(len(obj.O)):
-            for k in range(len(obj.O)):
-                if k+1 == i:
-                    obj.O[i,k] = np.sqrt((obj.j-obj.m[k])*(obj.j+obj.m[k]+1))
-        return obj
-
-    @staticmethod
-    def Jminus(J):
-        obj = Operator(J)
-        for i in range(len(obj.O)):
-            for k in range(len(obj.O)):
-                if k-1 == i:
-                    obj.O[i,k] = np.sqrt((obj.j+obj.m[k])*(obj.j-obj.m[k]+1))
-        return obj
-
-    @staticmethod
-    def Jx(J):
-        objp = Operator.Jplus(J)
-        objm = Operator.Jminus(J)
-        return 0.5*objp + 0.5*objm
-
-    @staticmethod
-    def Jy(J):
-        objp = Operator.Jplus(J)
-        objm = Operator.Jminus(J)
-        return -0.5j*objp + 0.5j*objm
-
-    def __add__(self,other):
-        newobj = Operator(self.j)
-        if isinstance(other, Operator):
-           newobj.O = self.O + other.O
-        else:
-           newobj.O = self.O + other*np.identity(int(2*self.j+1))
-        return newobj
-
-    def __radd__(self,other):
-        newobj = Operator(self.j)
-        if isinstance(other, Operator):
-            newobj.O = self.O + other.O
-        else:
-            newobj.O = self.O + other*np.identity(int(2*self.j+1))
-        return newobj
-
-    def __sub__(self,other):
-        newobj = Operator(self.j)
-        if isinstance(other, Operator):
-            newobj.O = self.O - other.O
-        else:
-            newobj.O = self.O - other*np.identity(int(2*self.j+1))
-        return newobj
-
-    def __mul__(self,other):
-        newobj = Operator(self.j)
-        if (isinstance(other, int) or isinstance(other, float) or isinstance(other, complex)):
-           newobj.O = other * self.O
-        else:
-           newobj.O = np.dot(self.O, other.O)
-        return newobj
-
-    def __rmul__(self,other):
-        newobj = Operator(self.j)
-        if (isinstance(other, int) or isinstance(other, float)  or isinstance(other, complex)):
-           newobj.O = other * self.O
-        else:
-           newobj.O = np.dot(other.O, self.O)
-        return newobj
-
-    def __pow__(self, power):
-        newobj = Operator(self.j)
-        newobj.O = self.O
-        for i in range(power-1):
-            newobj.O = np.dot(newobj.O,self.O)
-        return newobj
-
-    def __neg__(self):
-        newobj = Operator(self.j)
-        newobj.O = -self.O
-        return newobj
-
-    def __repr__(self):
-        return repr(self.O)
-
-
-
-
-
-
-
-
-def StevensOp(J,n,m):
-    """generate stevens operator for a given total angular momentum
-    and a given n and m state"""
-    Jz = Operator.Jz(J=J)
-    Jp = Operator.Jplus(J=J)
-    Jm = Operator.Jminus(J=J)
-    X = J*(J+1.)
-
-    if [n,m] == [0,0]:
-        return np.zeros((int(2*J+1), int(2*J+1)))
-    elif [n,m] == [1,0]:
-        matrix = Jz
-    elif [n,m] == [1,1]:
-        matrix = 0.5 *(Jp + Jm)
-    elif [n,m] == [1,-1]:
-        matrix = -0.5j *(Jp - Jm)
-
-    elif [n,m] == [2,2]:
-        matrix = 0.5 *(Jp**2 + Jm**2)
-    elif [n,m] == [2,1]:
-        matrix = 0.25*(Jz*(Jp + Jm) + (Jp + Jm)*Jz)
-    elif [n,m] == [2,0]:
-        matrix = 3*Jz**2 - X
-    elif [n,m] == [2,-1]:
-        matrix = -0.25j*(Jz*(Jp - Jm) + (Jp - Jm)*Jz)
-    elif [n,m] == [2,-2]:
-        matrix = -0.5j *(Jp**2 - Jm**2)
-
-    elif [n,m] == [3,3]:
-        matrix = 0.5 *(Jp**3 + Jm**3)
-    elif [n,m] == [3,2]:
-        matrix = 0.25 *((Jp**2 + Jm**2)*Jz + Jz*(Jp**2 + Jm**2))
-    elif [n,m] == [3,1]:
-        matrix = 0.25*((Jp + Jm)*(5*Jz**2 - X - 0.5) + (5*Jz**2 - X - 0.5)*(Jp + Jm))
-    elif [n,m] == [3,0]:
-        matrix = 5*Jz**3 - (3*X-1)*Jz
-    elif [n,m] == [3,-1]:
-        matrix = -0.25j*((Jp - Jm)*(5*Jz**2 - X - 0.5) + (5*Jz**2 - X - 0.5)*(Jp - Jm))
-    elif [n,m] == [3,-2]:
-        matrix = -0.25j*(Jz*(Jp**2 - Jm**2) + (Jp**2 - Jm**2)*Jz)
-    elif [n,m] == [3,-3]:
-        matrix = -0.5j *(Jp**3 - Jm**3)
-
-    elif [n,m] == [4,4]:
-        matrix = 0.5 *(Jp**4 + Jm**4)
-    elif [n,m] == [4,3]:
-        matrix = 0.25 *((Jp**3 + Jm**3)*Jz + Jz*(Jp**3 + Jm**3))
-    elif [n,m] == [4,2]:
-        matrix = 0.25 *((Jp**2 + Jm**2)*(7*Jz**2 -X -5) + (7*Jz**2 -X -5)*(Jp**2 + Jm**2))
-    elif [n,m] == [4,1]:
-        matrix = 0.25 *((Jp + Jm)*(7*Jz**3 -(3*X+1)*Jz) + (7*Jz**3 -(3*X+1)*Jz)*(Jp + Jm))
-    elif [n,m] == [4,0]:
-        matrix = 35*Jz**4 - (30*X -25)*Jz**2 + 3*X**2 - 6*X
-    elif [n,m] == [4,-4]:
-        matrix = -0.5j *(Jp**4 - Jm**4)
-    elif [n,m] == [4,-3]:
-        matrix = -0.25j *((Jp**3 - Jm**3)*Jz + Jz*(Jp**3 - Jm**3))
-    elif [n,m] == [4,-2]:
-        matrix = -0.25j *((Jp**2 - Jm**2)*(7*Jz**2 -X -5) + (7*Jz**2 -X -5)*(Jp**2 - Jm**2))
-    elif [n,m] == [4,-1]:
-        matrix = -0.25j *((Jp - Jm)*(7*Jz**3 -(3*X+1)*Jz) + (7*Jz**3 -(3*X+1)*Jz)*(Jp - Jm))
-
-    elif [n,m] == [6,6]:
-        matrix = 0.5 *(Jp**6 + Jm**6)
-    elif [n,m] == [6,5]:
-        matrix = 0.25*((Jp**5 + Jm**5)*Jz + Jz*(Jp**5 + Jm**5))
-    elif [n,m] == [6,4]:
-        matrix = 0.25*((Jp**4 + Jm**4)*(11*Jz**2 -X -38) + (11*Jz**2 -X -38)*(Jp**4 + Jm**4))
-    elif [n,m] == [6,3]:
-        matrix = 0.25*((Jp**3 + Jm**3)*(11*Jz**3 -(3*X+59)*Jz) + (11*Jz**3 -(3*X+59)*Jz)*(Jp**3 + Jm**3))
-    elif [n,m] == [6,2]:
-        matrix = 0.25*((Jp**2 + Jm**2)*(33*Jz**4 -(18*X+123)*Jz**2 +X**2 +10*X +102) +\
-                    (33*Jz**4 -(18*X+123)*Jz**2 +X**2 +10*X +102)*(Jp**2 + Jm**2))
-    elif [n,m] == [6,1]:
-        matrix = 0.25*((Jp +Jm)*(33*Jz**5 -(30*X-15)*Jz**3 +(5*X**2 -10*X +12)*Jz) +\
-                    (33*Jz**5 -(30*X-15)*Jz**3 +(5*X**2 -10*X +12)*Jz)*(Jp+ Jm))
-    elif [n,m] == [6,0]:
-        matrix = 231*Jz**6 - (315*X-735)*Jz**4 + (105*X**2 -525*X +294)*Jz**2 -\
-                 5*X**3 + 40*X**2 - 60*X
-    elif [n,m] == [6,-6]:
-        matrix = -0.5j *(Jp**6 - Jm**6)
-    elif [n,m] == [6,-5]:
-        matrix = -0.25j*((Jp**5 - Jm**5)*Jz + Jz*(Jp**5 - Jm**5))
-    elif [n,m] == [6,-4]:
-        matrix = -0.25j*((Jp**4 - Jm**4)*(11*Jz**2 -X -38) + (11*Jz**2 -X -38)*(Jp**4 - Jm**4))
-    elif [n,m] == [6,-3]:
-        matrix = -0.25j*((Jp**3 - Jm**3)*(11*Jz**3 -(3*X+59)*Jz) + (11*Jz**3 -(3*X+59)*Jz)*(Jp**3 - Jm**3))
-    elif [n,m] == [6,-2]:
-        matrix = -0.25j*((Jp**2 - Jm**2)*(33*Jz**4 -(18*X+123)*Jz**2 +X**2 +10*X +102) +\
-                    (33*Jz**4 -(18*X+123)*Jz**2 +X**2 +10*X +102)*(Jp**2 - Jm**2))
-    elif [n,m] == [6,-1]:
-        matrix = -0.25j*((Jp - Jm)*(33*Jz**5 -(30*X-15)*Jz**3 +(5*X**2 -10*X +12)*Jz) +\
-                 (33*Jz**5 -(30*X-15)*Jz**3 +(5*X**2 -10*X +12)*Jz)*(Jp - Jm))
-
-    return matrix.O
-#   return matrix
-
-
-def LS_StevensOp(L,S,n,m):
-    """generate stevens operator for a given total angular momentum
-    and a given n and m state, but in the LS basis"""
-    lmatrix = StevensOp(L,n,m)
-
-    fullmatrix = np.hstack(np.hstack(np.multiply.outer(lmatrix, np.identity(int(2*S+1)))))
-    return fullmatrix
-
-
-
-
-
-#### Point Charge Approximation stuff
-
-
-directory = os.path.dirname(os.path.realpath(__file__))+'/'
-#Import prefactors
-coef = np.genfromtxt(directory+'pcf_lib/TessHarmConsts.txt',delimiter = ',')
-# Make into callable dictionary
-keys=[str(int(c[0]))+','+str(int(c[1])) for c in coef]
-prefac = dict(zip(keys,np.abs(coef[:,2])))
-
-
-def Constant(n,m):
-    '''Returns the constant in front of the tesseral harmonic'''
-    nm = str(n)+','+str(m)
-    return prefac[nm]
-
-
-def TessHarm(n,m,x,y,z):
-    """These functions have been cross-checked with mathematica's functions"""
-    nm = str(n)+','+str(m)
-    r = np.sqrt(x**2 + y**2 + z**2)
-
-    if nm == '0,0':
-        value = 1
-    elif nm == '1,1':
-        value = x/r
-    elif nm == '1,0':
-        value = z/r
-    elif nm == '1,-1':
-        value = y/r
-
-
-    elif nm == '2,-2':
-        value = 2*x*y/(r**2)
-    elif nm == '2,-1':
-        value = (y*z)/(r**2)
-    elif nm == '2,0':
-        value = (3*z**2 - r**2)/(r**2)
-    elif nm == '2,1':
-        value = x*z/(r**2)
-    elif nm == '2,2':
-        value = (x**2 - y**2)/(r**2)
-
-
-    elif nm == '3,-3':
-        value = (3*x**2 *y - y**3)/(r**3)
-    elif nm == '3,-2':
-        value = (2*x*y*z)/(r**3)
-    elif nm == '3,-1':
-        value = y*(5*z**2 - r**2)/(r**3)
-    elif nm == '3,0':
-        value = z*(5*z**2 - 3*r**2)/(r**3)
-    elif nm == '3,1':
-        value = x*(5*z**2 - r**2)/(r**3)
-    elif nm == '3,2':
-        value = z*(x**2 - y**2)/(r**3)
-    elif nm == '3,3':
-        value = (x**3 - 3*x*y**2)/(r**3)
-
-
-    elif nm == '4,-4':
-        value = 4*(x**3*y - x*y**3)/(r**4)
-    elif nm == '4,-3':
-        value = (3*x**2 *y - y**3)*z/(r**4)
-    elif nm == '4,-2':
-        value = 2*x*y*(7*z**2 - r**2)/(r**4)
-    elif nm == '4,-1':
-        value = y*z*(7*z**2 - 3*r**2)/(r**4)
-    elif nm == '4,0':
-        value = (35*z**4 - 30*z**2 *r**2 + 3*r**4)/(r**4)
-    elif nm == '4,1':
-        value = x*z*(7*z**2 - 3*r**2)/(r**4)
-    elif nm == '4,2':
-        value = (x**2 - y**2)*(7*z**2 - r**2)/(r**4)
-    elif nm == '4,3':
-        value = (x**3 - 3*x*y**2)*z/(r**4)
-    elif nm == '4,4':
-        value = (x**4 - 6*x**2*y**2 + y**4)/(r**4)
-
-    # skipping 5 because it's almost never used.
-    if n == 5:
-        value = 0
-
-    elif nm == '6,-6':
-        value = (6*x**5*y - 20*x**3*y**3 + 6*x*y**5)/(r**6)
-    elif nm == '6,-5':
-        value = (5*x**4*y - 10*x**2*y**3 + y**5)*z/(r**6)
-    elif nm == '6,-4':
-        value = 4*(x**3*y - x*y**3)*(11*z**2 - r**2)/(r**6)
-    elif nm == '6,-3':
-        value = (3*x**2*y - y**3)*(11*z**3 - 3*z*r**2)/(r**6)
-    elif nm == '6,-2':
-        value = 2*x*y*(33*z**4 - 18*z**2 *r**2 + r**4)/(r**6)
-    elif nm == '6,-1':
-        value = y*z*(33*z**4 - 30*z**2 *r**2 + 5*r**4)/(r**6)
-    elif nm == '6,0':
-        value = (231*z**6 - 315*z**4 *r**2 + 105*z**2 *r**4 - 5*r**6)/(r**6)
-    elif nm == '6,1':
-        value = x*z*(33*z**4 - 30*z**2 *r**2 + 5*r**4)/(r**6)
-    elif nm == '6,2':
-        value = (x**2 - y**2)*(33*z**4 - 18*z**2 *r**2 + r**4)/(r**6)
-    elif nm == '6,3':
-        value = (x**3 - 3*x*y**2)*(11*z**3 - 3*z*r**2)/(r**6)
-    elif nm == '6,4':
-        value = (x**4 - 6*x**2*y**2 + y**4)*(11*z**2 - r**2)/(r**6)
-    elif nm == '6,5':
-        value = (x**5 - 10*x**3*y**2 + 5*x*y**4)*z/(r**6)
-    elif nm == '6,6':
-        value = (x**6 - 15.*x**4*y**2 + 15.*x**2*y**4 - y**6)/(r**6)
-
-    return prefac[nm]*value
-
-
-# #Used for testing purposes
-# for i in xrange(7):
-#   for j in xrange(i+1):
-#       print i,',',j,',', TessHarm(i,j,1.1,0.1,0.3)
-
-#Import Radial Integrals
-radialI = {}
-for line in open(directory+'pcf_lib/RadialIntegrals.txt'):
-    if not line.startswith('#'):
-        l = line.split(',')
-        radialI[l[0]] = [float(v) for v in l[1:]]
-
-
-def RadialIntegral(ion,n):
-    """Returns the radial integral of a rare earth ion plus self-shielding"""
-    shielding = 1- radialI[ion][int(n/2-1)]
-    return radialI[ion][int(n/2-1) + 3] * shielding
-
-########################################################################
-# Multiplicative factor from Hutchings, Table VII
-
-def PFalpha(L,S,l,halffilled=True):
-    aaa = 2.*(2.*l+1.-4.*S)/((2.*l-1)*(2.*l+3.)*(2.*L-1.))
-    if halffilled:  return aaa
-    else:           return -aaa
-
-
-def PFbeta(L,S,l,halffilled=True):
-    bbb = 3.*(2.*l+1.-4.*S)*(-7.*(l-2.*S)*(l-2.*S+1.)+3.*(l-1.)*(l+2.))/\
-        ((2.*l-3)*(2.*l-1)*(2.*l+3.)*(2.*l+5.)*(L-1.)*(2.*L-1.)*(2.*L-3.))
-    if halffilled:  return bbb
-    else:           return -bbb
-
-
-def PFgamma(L,nvalence):
-    '''We assume l=6 because only l=6 even has a gamma term.'''
-    def O_06(L,Lz):
-        X = L*(L+1.)
-        return 231.*Lz**6 - (315.*X-735.)*Lz**4 + (105.*X**2 -525.*X +294.)*Lz**2 -\
-                 5.*X**3 + 40.*X**2 - 60*X
-    LLzexp = O_06(L,L)
-    gamma6 = -4./3861. #from integration over spherical harmonics in l=3,m=3 state
-
-    # calculate individual electron wave function expectation values:
-    lzvalues = np.tile(np.arange(-3,4),2)
-    IndividualElectron = 0
-    for i in range(nvalence):
-        IndividualElectron += O_06(3,lzvalues[i])
-
-    return IndividualElectron/LLzexp*gamma6
-
-########################################################################
-# The following lookup table was generated from the functions above.
-# This was done to save time in computation steps.
-LSThet = {}
-LSThet['Sm3+'] = [0.0148148148148, 0.0003848003848, -2.46666913334e-05]
-LSThet['Pm3+'] = [0.0040404040404, 0.000122436486073, 1.12121324243e-05]
-LSThet['Nd3+'] = [-0.0040404040404, -0.000122436486073, -1.12121324243e-05]
-LSThet['Ce3+'] = [-0.0444444444444, 0.0040404040404, -0.001036001036]
-LSThet['Dy3+'] = [-0.0148148148148, -0.0003848003848, 2.46666913334e-05]
-LSThet['Ho3+'] = [-0.0040404040404, -0.000122436486073, -1.12121324243e-05]
-LSThet['Tm3+'] = [0.0148148148148, 0.0003848003848, -2.46666913334e-05]
-LSThet['Pr3+'] = [-0.0148148148148, -0.0003848003848, 2.46666913334e-05]
-LSThet['Er3+'] = [0.0040404040404, 0.000122436486073, 1.12121324243e-05]
-LSThet['Tb3+'] = [-0.0444444444444, 0.0040404040404, -0.001036001036]
-LSThet['Yb3+'] = [0.0444444444444, -0.0040404040404, 0.001036001036]
-def LStheta(ion,n):
-    if isinstance(ion, str):
-        return LSThet[ion][int(n/2-1)]
-
-
-
-# Multiplicative factor for rare earth ground state multiplet
-# from Hutchings, Table VI
- # Cross-checked by hand with calculator.
-Thet = {}
-Thet['Ce3+'] = [-2./(5*7), 2./(3*3*5*7), 0]
-Thet['Pr3+'] = [-2.*2*13/(3*3*5*5*11), -2.*2/(3*3*5*11*11), 2.**4*17/(3**4*5*7*11**2*13)]
-Thet['Nd3+'] = [-7./(3**2*11**2) , -2.**3*17/(3**3*11**3*13), -5.*17*19/(3**3*7*11**3*13**2)]
-Thet['Pm3+'] = [2*7./(3*5*11**2), 2.**3*7*17/(3**3*5*11**3*13), 2.**3*17*19/(3**3*7*11**2*13**2)]
-Thet['Sm3+'] = [13./(3**2*5*7) , 2.*13/(3**3*5*7*11), 0]
-Thet['Tb3+'] = [-1./(3**2*11), 2./(3**3*5*11**2), -1./(3**4*7*11**2*13)]
-Thet['Dy3+'] = [-2./(3**2*5*7) , -2.**3/(3**3*5*7*11*13), 2.*2/(3**3*7*11**2*13**2)]
-Thet['Ho3+'] = [-1./(2*3*3*5*5), -1./(2*3*5*7*11*13), -5./(3**3*7*11**2*13**2)]
-Thet['Er3+'] = [2.*2/(3*3*5*5*7) , 2./(3.**2*5*7*11*13), 2.*2*2/(3.**3*7*11**2*13**2)]
-Thet['Tm3+'] = [1./(3**2*11) , 2.**3/(3**4*5*11**2), -5./(3**4*7*11**2*13)]
-Thet['Yb3+'] = [2./(3**2*7) , -2./(3*5*7*11), 2.*2/(3**3*7*11*13)]
-def theta(ion,n):
-    return Thet[ion][int(n/2-1)]
+JionTM = {}   # [S, L, J]
+
+### These values are taken from the free ion states at 
+### https://physics.nist.gov/PhysRefData/Elements/per_noframes.html
+JionTM['Cu2+'] = [1/2, 2.]
+JionTM['Ni2+'] = [1., 3.]
+JionTM['Ni3+'] = [3/2, 3.]
+JionTM['Co2+'] = [3/2, 3]
+JionTM['Co3+'] = [2,   2]
+JionTM['Fe2+'] = [2,   2]
+JionTM['Fe3+'] = [5/2, 0]
+JionTM['Mn2+'] = [5/2, 0]
+JionTM['Mn3+'] = [2, 2]
+JionTM['Mn4+'] = [3/2, 3]
+JionTM['Cr2+'] = [2, 2]
+JionTM['Cr3+'] = [3/2, 3]
+JionTM['V2+']  = [3/2, 3]
+JionTM['V3+']  = [1, 3]
+JionTM['Ti2+']  = [1, 3]
+JionTM['Ti3+']  = [1/2, 2]
+
+JionTM['Nb3+'] = [1, 3]
+JionTM['Tc4+'] = [3/2, 3]
+JionTM['Ru3+'] = [5/2, 0]
+JionTM['Rh3+'] = [2, 2]
+JionTM['Pd2+'] = [1, 3]
+JionTM['Pd3+'] = [3/2, 3]
 
 
 
 Jion = {}   # [S, L, J]
-Jion['Ni2+'] = [1., 3.]
-Jion['Ni3+'] = [1., 2.]
 # Rare earths
 Jion['Ce3+'] = [0.5, 3., 2.5]
 Jion['Pr3+'] = [1., 5., 4.]
@@ -777,16 +298,18 @@ class CFLevels:
         newH = np.sum([a*b for a,b in zip(self.O, newcoeff)], axis=0)
         self.diagonalize(newH)
 
-    def diagonalize(self, Hamiltonian=None):
+    def diagonalize(self, Hamiltonian=None, old=False):
         """A Hamiltonian can be passed to the function (used for data fits)
         or the initially defined hamiltonian is used."""
         if Hamiltonian is None:
             Hamiltonian = self.H
         else:
             self.H = Hamiltonian
-        # diagonalH = LA.eigh(Hamiltonian)  #This was slower and less precise
-        bands = self._findbands(Hamiltonian)
-        diagonalH = LA.eig_banded(bands, lower=True)
+        if old:
+            diagonalH = LA.eigh(Hamiltonian)  #This was slower and less precise
+        else:
+            bands = self._findbands(Hamiltonian)
+            diagonalH = LA.eig_banded(bands, lower=True)
 
         #self.eigenvaluesNoNorm = diagonalH[0]
         self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
@@ -1084,9 +607,12 @@ class CFLevels:
 
         # A) Define magnetic Hamiltonian
 
-        Jx = Operator.Jx(self.J)
-        Jy = Operator.Jy(self.J)
-        Jz = Operator.Jz(self.J)
+        #Jx = Operator.Jx(self.J)
+        #Jy = Operator.Jy(self.J)
+        #Jz = Operator.Jz(self.J)
+        Jx = self.opttran.Jx
+        Jy = self.opttran.Jy
+        Jz = self.opttran.Jz
 
         #print(Jx)
         #print(Jy)
@@ -1098,7 +624,8 @@ class CFLevels:
         JdotB = gJ*muB*(Field[0]*Jx + Field[1]*Jy + Field[2]*Jz)
 
         # B) Diagonalize full Hamiltonian
-        FieldHam = self.H + JdotB.O
+        FieldHam = self.H + JdotB
+        #FieldHam = self.H + JdotB.O
         diagonalH = LA.eigh(FieldHam)
 
         minE = np.amin(diagonalH[0])
@@ -1191,9 +718,9 @@ class CFLevels:
 
         # In this case, we assume powder average.
 
-        Jx = Operator.Jx(self.J)
-        Jy = Operator.Jy(self.J)
-        Jz = Operator.Jz(self.J)
+        # Jx = Operator.Jx(self.J)
+        # Jy = Operator.Jy(self.J)
+        # Jz = Operator.Jz(self.J)
 
 
         expvals, temps = np.meshgrid(self.eigenvalues, Temps)
@@ -1237,9 +764,12 @@ class CFLevels:
         gsEVec = self.eigenvectors[zeroinds]
         vv1 = np.around(gsEVec[0],10)
         vv2 = np.around(gsEVec[1],10)
-        Jx = Operator.Jx(self.J).O
-        Jy = Operator.Jy(self.J).O
-        Jz = Operator.Jz(self.J).O
+        # Jx = Operator.Jx(self.J).O
+        # Jy = Operator.Jy(self.J).O
+        # Jz = Operator.Jz(self.J).O
+        Jx = self.opttran.Jx
+        Jy = self.opttran.Jy
+        Jz = self.opttran.Jz
         #print(vv1,'\n',vv2)
         jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,vv2)) )
         jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,vv1)) )
@@ -1443,284 +973,14 @@ def rescaleCEF(ion1, ion2, B, n):
 
 
 
-
-
-class LSOperator():
-    '''This is for a full treatment in the intermediate coupling scheme'''
-    def __init__(self, L, S):
-        self.O = np.zeros((int((2*L+1)*(2*S+1)), int((2*L+1)*(2*S+1)) ))
-        self.L = L
-        self.S = S
-        lm = np.arange(-L,L+1,1)
-        sm = np.arange(-S,S+1,1)
-        self.Lm = np.repeat(lm, len(sm))
-        self.Sm = np.tile(sm, len(lm))
-    
-    @staticmethod
-    def Lz(L, S):
-        obj = LSOperator(L, S)
-        for i in range(len(obj.O)):
-            for k in range(len(obj.O)):
-                if i == k:
-                    obj.O[i,k] = (obj.Lm[k])
-        return obj
-
-    @staticmethod
-    def Lplus(L, S):
-        obj = LSOperator(L, S)
-        for i, lm1 in enumerate(obj.Lm):
-            for k, lm2 in enumerate(obj.Lm):
-                if (lm1 - lm2 == 1) and (obj.Sm[i] == obj.Sm[k] ):
-                    obj.O[i,k] = np.sqrt((obj.L-obj.Lm[k])*(obj.L+obj.Lm[k]+1))
-        return obj
-
-    @staticmethod
-    def Lminus(L, S):
-        obj = LSOperator(L, S)
-        for i, lm1 in enumerate(obj.Lm):
-            for k, lm2 in enumerate(obj.Lm):
-                if (lm2 - lm1 == 1)  and (obj.Sm[i] == obj.Sm[k]):
-                    obj.O[i,k] = np.sqrt((obj.L+obj.Lm[k])*(obj.L-obj.Lm[k]+1))
-        return obj
-
-    @staticmethod
-    def Lx(L, S):
-        objp = LSOperator.Lplus(L, S)
-        objm = LSOperator.Lminus(L, S)
-        return 0.5*objp + 0.5*objm
-
-    @staticmethod
-    def Ly(L, S):
-        objp = LSOperator.Lplus(L, S)
-        objm = LSOperator.Lminus(L, S)
-        return -0.5j*objp + 0.5j*objm
-
-    ##################################
-    # Spin operators
-    @staticmethod
-    def Sz(L, S):
-        obj = LSOperator(L, S)
-        for i in range(len(obj.O)):
-            for k in range(len(obj.O)):
-                if i == k:
-                    obj.O[i,k] = (obj.Sm[k])
-        return obj
-
-    @staticmethod
-    def Splus(L, S):
-        obj = LSOperator(L, S)
-        for i, sm1 in enumerate(obj.Sm):
-            for k, sm2 in enumerate(obj.Sm):
-                if (sm1 - sm2 == 1) and (obj.Lm[i] == obj.Lm[k]):
-                    obj.O[i,k] = np.sqrt((obj.S-obj.Sm[k])*(obj.S+obj.Sm[k]+1))
-        return obj
-
-    @staticmethod
-    def Sminus(L, S):
-        obj = LSOperator(L, S)
-        for i, sm1 in enumerate(obj.Sm):
-            for k, sm2 in enumerate(obj.Sm):
-                if (sm2 - sm1 == 1) and (obj.Lm[i] == obj.Lm[k]):
-                    obj.O[i,k] = np.sqrt((obj.S+obj.Sm[k])*(obj.S-obj.Sm[k]+1))
-        return obj
-
-    @staticmethod
-    def Sx(L, S):
-        objp = LSOperator.Splus(L, S)
-        objm = LSOperator.Sminus(L, S)
-        return 0.5*objp + 0.5*objm
-
-    @staticmethod
-    def Sy(L, S):
-        objp = LSOperator.Splus(L, S)
-        objm = LSOperator.Sminus(L, S)
-        return -0.5j*objp + 0.5j*objm
-
-
-    def __add__(self,other):
-        newobj = LSOperator(self.L, self.S)
-        try:
-            newobj.O = np.add(self.O, other.O)
-        except AttributeError:
-            newobj.O = self.O + other*np.identity(len(self.O))
-        return newobj
-
-    def __radd__(self,other):
-        newobj = LSOperator(self.L, self.S)
-        try:
-            newobj.O = np.add(other.O, self.O)
-        except AttributeError:
-            newobj.O = self.O + other*np.identity(len(self.O))
-        return newobj
-
-    def __sub__(self,other):
-        newobj = LSOperator(self.L, self.S)
-        try:
-            newobj.O = self.O - other.O
-        except AttributeError:
-            newobj.O = self.O - other*np.identity(len(self.O))
-        return newobj
-
-    def __mul__(self,other):
-        newobj = LSOperator(self.L, self.S)
-        try:
-            newobj.O = np.dot(self.O, other.O)
-        except AttributeError:
-            newobj.O = other * self.O
-        return newobj
-
-    def __rmul__(self,other):
-        newobj = LSOperator(self.L, self.S)
-        try:
-            newobj.O = np.dot(other.O, self.O)
-        except AttributeError:
-            newobj.O = other * self.O
-        return newobj
-
-    def __pow__(self, power):
-        newobj = LSOperator(self.L, self.S)
-        newobj.O = self.O
-        for i in range(power-1):
-            newobj.O = np.dot(newobj.O,self.O)
-        return newobj
-
-    def __neg__(self):
-        newobj = LSOperator(self.L, self.S)
-        newobj.O = -self.O
-        return newobj
-
-    def __repr__(self):
-        return repr(self.O)
-
-
-    # Computing magnetization and susceptibility
-
-    def magnetization(self, Temp, Field):
-        '''field should be a 3-component vector. Temps may be an array.'''
-        if len(Field) != 3: 
-            raise TypeError("Field needs to be 3-component vector")
-
-        # A) Define magnetic Hamiltonian
-        Lx = LSOperator.Lx(self.L, self.S)
-        Ly = LSOperator.Ly(self.L, self.S)
-        Lz = LSOperator.Lz(self.L, self.S)
-        Sx = LSOperator.Sx(self.L, self.S)
-        Sy = LSOperator.Sy(self.L, self.S)
-        Sz = LSOperator.Sz(self.L, self.S)
-
-        g0 = 2.002319
-        Jx = Lx + g0*Sx
-        Jy = Ly + g0*Sy
-        Jz = Lz + g0*Sz
-
-        muB = 5.7883818012e-2  # meV/T
-        #mu0 = np.pi*4e-7       # T*m/A
-        JdotB = muB*((Field[0]*Lx + Field[1]*Ly + Field[2]*Lz) +\
-                        (Field[0]*Sx + Field[1]*Sy + Field[2]*Sz))
-
-        # B) Diagonalize full Hamiltonian
-        FieldHam = self.O + JdotB.O
-        diagonalH = LA.eigh(FieldHam)
-
-        minE = np.amin(diagonalH[0])
-        evals = diagonalH[0] - minE
-        evecs = diagonalH[1].T
-        # These ARE actual eigenvalues.
-
-        # C) Compute expectation value along field
-        JexpVals = np.zeros((len(evals),3))
-        for i, ev in enumerate(evecs):
-            #print np.real(np.dot(ev, np.dot( self.O ,ev))), diagonalH[0][i]
-            #print np.real(np.dot( FieldHam ,ev)), np.real(diagonalH[0][i]*ev)
-            JexpVals[i] =[np.real(np.dot(np.conjugate(ev), np.dot( Jx.O ,ev))),
-                          np.real(np.dot(np.conjugate(ev), np.dot( Jy.O ,ev))),
-                          np.real(np.dot(np.conjugate(ev), np.dot( Jz.O ,ev)))]
-        k_B = 8.6173303e-2  # meV/K
-
-        if (isinstance(Temp, int) or isinstance(Temp, float)):
-            Zz = np.sum(np.exp(-evals/(k_B*Temp)))
-            JexpVal = np.dot(np.exp(-evals/(k_B*Temp)),JexpVals)/Zz
-            return np.real(JexpVal)
-        else:
-            expvals, temps = np.meshgrid(evals, Temp)
-            ZZ = np.sum(np.exp(-expvals/temps/k_B), axis=1)
-            JexpValList = np.repeat(JexpVals.reshape((1,)+JexpVals.shape), len(Temp), axis=0)
-            JexpValList = np.sum(np.exp(-expvals/temps/k_B)*\
-                                np.transpose(JexpValList, axes=[2,0,1]), axis=2) / ZZ
-            # if np.isnan(JexpValList).any():
-            #     print -expvals[0]/temps[0]/k_B
-            #     print np.exp(-expvals/temps/k_B)[0]
-            #     raise ValueError('Nan in result!')
-            return np.nan_to_num(JexpValList.T)
-
-
-    def susceptibility(self, Temps, Field, deltaField):
-        '''Computes susceptibility numerically with a numerical derivative.
-        deltaField needs to be a scalar value.'''
-        if not isinstance(deltaField, float):
-            raise TypeError("Deltafield needs to be a scalar")
-
-        if isinstance(Field, float):
-            # Assume we are computing a powder average
-            VecField = Field * np.array([1,0,0])
-            Delta = deltaField*np.array(VecField)/Field
-            Mplus1 = self.magnetization(Temps, VecField + Delta)
-            Mminus1= self.magnetization(Temps, VecField - Delta)
-            Mplus2 = self.magnetization(Temps, VecField + 2*Delta)
-            Mminus2= self.magnetization(Temps, VecField - 2*Delta)
-
-            dMdH_x = (8*(Mplus1 - Mminus1) - (Mplus2 - Mminus2))/(12*deltaField)
-
-            VecField = Field * np.array([0,1,0])
-            Delta = deltaField*np.array(VecField)/Field
-            Mplus1 = self.magnetization(Temps, VecField + Delta)
-            Mminus1= self.magnetization(Temps, VecField - Delta)
-            Mplus2 = self.magnetization(Temps, VecField + 2*Delta)
-            Mminus2= self.magnetization(Temps, VecField - 2*Delta)
-
-            dMdH_y = (8*(Mplus1 - Mminus1) - (Mplus2 - Mminus2))/(12*deltaField)
-
-            VecField = Field * np.array([0,0,1])
-            Delta = deltaField*np.array(VecField)/Field
-            Mplus1 = self.magnetization(Temps, VecField + Delta)
-            Mminus1= self.magnetization(Temps, VecField - Delta)
-            Mplus2 = self.magnetization(Temps, VecField + 2*Delta)
-            Mminus2= self.magnetization(Temps, VecField - 2*Delta)
-
-            dMdH_z = (8*(Mplus1 - Mminus1) - (Mplus2 - Mminus2))/(12*deltaField)
-
-            return (dMdH_x[:,0]+dMdH_y[:,1]+dMdH_z[:,2])/3.
-
-        elif len(Field) == 3:
-            Delta = deltaField*np.array(Field)/np.linalg.norm(Field)
-            Mplus1 = self.magnetization(Temps, Field + Delta)
-            Mminus1= self.magnetization(Temps, Field - Delta)
-            Mplus2 = self.magnetization(Temps, Field + 2*Delta)
-            Mminus2= self.magnetization(Temps, Field - 2*Delta)
-
-            dMdH = (8*(Mplus1 - Mminus1) - (Mplus2 - Mminus2))/(12*deltaField)
-            #dMdH = (Mplus1 - Mminus1)/(2*deltaField)
-
-            return dMdH
-
-
-
-
-
-
-
-
-
-
-
-
 ### Same class, but in the LS basis
 
 class LS_Ligands:
     """For doing point-charge calculations in LS basis"""
     def __init__(self,ion, ligandPos, SpinOrbitCoupling, latticeParams=None, ionPos=[0,0,0]):
         """Creates array of ligand bonds in cartesian coordinates.
-        'ion' can either be the name of the ion or a list specifying L and S."""
+        'ion' can either be the name of the ion or a list specifying L and S.
+        For example, it could be 'Ni3+', or ['Ni3+', 0.5, 1]"""
         lp = latticeParams
         if lp == None:
             self.latt = lat.lattice(1,1,1,90,90,90)
@@ -1738,8 +998,9 @@ class LS_Ligands:
             self.ionS = Jion[ion][0]
             self.ionL = Jion[ion][1]
         else:
-            self.ionS = ion[0]
-            self.ionL = ion[1]
+            self.ion = ion[0]
+            self.ionS = ion[1]
+            self.ionL = ion[2]
 
         # Now, define the spin orbit coupling (so we don't have to re-define it 
         # every time we build the point charge model).
@@ -1878,27 +1139,20 @@ class LS_Ligands:
         return LS_CFLevels.Hamiltonian(self.H_CEF, self.H_SOC, self.ionL, self.ionS)
 
 
-    def TMPointChargeModel(self, RadialIntegrals,  halffilled=True, l=2,
-                        symequiv=None, LigandCharge= -2, IonCharge=1,
+
+    def TMPointChargeModel(self, l=2, symequiv=None, LigandCharge= -2, IonCharge=1,
                         printB = True, suppressminusm = False):
         ''' For transition metals:
         Create point charge model of the crystal fields.
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
+        halffilled = IsHalfFilled(self.ion)
 
         self.IonCharge = IonCharge
         # Lock suppressmm into whatever it was when PointChargeModel was first called.
         try: self.suppressmm
         except AttributeError:
             self.suppressmm = suppressminusm
-
-        # if symequiv == None:
-        #     charge = [LigandCharge]*len(self.bonds)
-        # else:
-        #     charge = [0]*len(self.bonds)
-        #     for i,se in enumerate(symequiv):
-        #         charge[i] = LigandCharge[se]
-        # self.symequiv = symequiv
 
 
         if symequiv == None:
@@ -1918,12 +1172,6 @@ class LS_Ligands:
                 charge[i] = LigandCharge[se]
 
 
-        # # print factors used:
-        # print "#---------------------------------------"
-        # print "# Stevens Factors \tRadial Integrals (a_0)"
-        # for n in range(2,8,2):
-        #     print ' ', theta(ion,n), '\t ', RadialIntegral(ion,n)
-        # print '#---------------------------------------\n'
 
         ahc = 1.43996e4  #Constant to get the energy in units of meV = alpha*hbar*c
         a0 = 0.52917721067    #Bohr radius in \AA
@@ -1950,7 +1198,7 @@ class LS_Ligands:
                             (self.bondlen[i]**(n+1))
 
             # 2)  Compute CEF parameter
-            B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegrals[n] * TM_LStheta[n]
+            B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegral_TM(self.ion, n) * TM_LStheta[n]
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
             if np.around(B,decimals=8) != 0:
                 OOO.append(StevensOp(self.ionL,n,m))
@@ -1971,6 +1219,87 @@ class LS_Ligands:
         newobj.O = OOO
         newobj.B = nonzeroB
         return newobj
+
+
+
+    def UnknownTMPointChargeModel(self, radialintegrals, halffilled=True, l=2,
+                        symequiv=None, LigandCharge= -2, IonCharge=1,
+                        printB = True, suppressminusm = False):
+        ''' For transition metals if the radial integrals are not in PyCrystalField (d5 ions)
+        Create point charge model of the crystal fields.
+        Returns a CFLevels object with the hamiltonian defined.
+        Define LigandCharge in units of e.'''
+
+        self.IonCharge = IonCharge
+        # Lock suppressmm into whatever it was when PointChargeModel was first called.
+        try: self.suppressmm
+        except AttributeError:
+            self.suppressmm = suppressminusm
+
+        if symequiv == None:
+            # charge = IonCharge*[LigandCharge]*len(self.bonds)
+            try:
+                if len(LigandCharge) == len(self.bonds):
+                    charge = LigandCharge
+                else:
+                    charge = [LigandCharge]*len(self.bonds)
+            except TypeError:
+                charge = [LigandCharge]*len(self.bonds)
+
+        else:
+            charge = [0]*len(self.bonds)
+            for i,se in enumerate(symequiv):
+                #charge[i] = IonCharge*LigandCharge[se]
+                charge[i] = LigandCharge[se]
+
+
+        ahc = 1.43996e4  #Constant to get the energy in units of meV = alpha*hbar*c
+        a0 = 0.52917721067    #Bohr radius in \AA
+
+        H = np.zeros((int(2*self.ionL+1), int(2*self.ionL+1)),dtype = complex)
+        self.B = []
+        OOO = []
+        nonzeroB = []
+
+        TM_LStheta = {2: PFalpha(self.ionL,self.ionS,l,halffilled), 
+                    4: PFbeta(self.ionL,self.ionS,l,halffilled)}
+
+        self.H_nocharge = [[]]
+        if self.suppressmm == False:  nmrange = [[n,m] for n in range(2,6,2) for m in range(-n,n+1)]
+        elif self.suppressmm == True:   nmrange = [[n,m] for n in range(2,6,2) for m in range(0,n+1)]
+        #for n,m in [[n,m] for n in range(2,8,2) for m in range(-n,n+1)]:
+        for n,m in nmrange:
+            # 1)  Compute gamma
+            gamma = 0
+            for i in range(len(self.bonds)):
+
+                gamma += 4*np.pi/(2*n+1)*charge[i] *\
+                            TessHarm(n,m, self.bonds[i][0], self.bonds[i][1], self.bonds[i][2])/\
+                            (self.bondlen[i]**(n+1))
+
+            # 2)  Compute CEF parameter
+            B = -gamma * ahc* a0**n * Constant(n,m) * radialintegrals[n] * TM_LStheta[n]
+            if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
+            if np.around(B,decimals=8) != 0:
+                OOO.append(StevensOp(self.ionL,n,m))
+                nonzeroB.append(B)
+            #print cef.StevensOp(ionJ,n,m)
+            #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
+            H += B*StevensOp(self.ionL,n,m)
+            self.B.append(B)
+        self.B = np.array(self.B)
+
+        # Convert Hamiltonian to full LS basis
+        H_CEF_O = np.hstack(np.hstack(np.multiply.outer(H, np.identity(int(2*self.ionS+1)))))
+        self.H_CEF = LSOperator(self.ionL, self.ionS)
+        self.H_CEF.O = H_CEF_O
+
+        #self.H = self.H_CEF + self.H_LS
+        newobj = LS_CFLevels.Hamiltonian(self.H_CEF, self.H_SOC, self.ionL, self.ionS)
+        newobj.O = OOO
+        newobj.B = nonzeroB
+        return newobj
+
 
 
 
@@ -2719,103 +2048,18 @@ class LS_CFLevels:
 
 
 
-
-
-
-
-def backgroundfunction(xdata, bgpoints):
-    """Linear interpolation"""
-    bgp=np.array(bgpoints)
-    if len(bgp)==2:
-        P1x, P1y, P2x, P2y = bgp[0,0], bgp[0,1], bgp[1,0], bgp[1,1], 
-        a = (P2y - P1y)/(P2x - P1x)
-        b = P1y - a*P1x
-        return a*xdata + b
-    elif len(bgp)>2:
-        # partition xdata
-        xdat = []
-        firstdat = True
-        for i in range(len(bgp)-1):
-            a= (bgp[i+1,1] - bgp[i,1])/(bgp[i+1,0] - bgp[i,0])
-            b = bgp[i,1] - a*bgp[i,0]
-            if firstdat == True:
-                firstdat = False
-                xdat.append(a*xdata[xdata <= bgp[i+1,0]] + b)
-            else:
-                xdat.append(a*xdata[((xdata <= bgp[i+1,0]) & (xdata > bgp[i,0]))] + b)
-        xdat.append(a*xdata[xdata > bgp[-1,0]] + b)
-        return np.hstack(xdat)
-
-
-
-#### Import file function
-def importfile(fil, lowcutoff = 0):
-    dataa = []
-    for line in open(fil):
-        if (not(line.startswith('#') or ('nan' in line) ) and float(line.split(' ')[-1])> lowcutoff):
-            dataa.append([float(item) for item in line.split(' ')])
-    return np.transpose(np.array(dataa))
-
-def importGridfile(fil, lowcutoff = 0):
-    dataa = []
-    for line in open(fil):
-        if 'shape:' in line:
-            shape = [int(i) for i in line.split(':')[1].split('x')]
-        elif (not(line.startswith('#') ) and float(line.split(' ')[-1])> lowcutoff):
-            dataa.append([float(item) for item in line.split(' ')])
-    data = np.transpose(np.array(dataa))
-
-    intensity = data[0].reshape(tuple(shape)).T
-    ierror = data[1].reshape(tuple(shape)).T
-    Qarray = data[2].reshape(tuple(shape))[:,0]
-    Earray = data[3].reshape(tuple(shape))[0]
-    return {'I':intensity, 'dI':ierror, 'Q':Qarray, 'E':Earray}
-
-
-
-
-
-def printLaTexCEFparams(Bs):
-    precision = 5
-    '''prints CEF parameters in the output that Latex can read'''
-    print('\\begin{table}\n\\caption{Fitted vs. Calculated CEF parameters for ?}')
-    print('\\begin{ruledtabular}')
-    print('\\begin{tabular}{c|'+'c'*len(Bs)+'}')
-    # Create header
-    print('$B_n^m$ (meV)' +' & Label'*len(Bs)
-        +' \\tabularnewline\n \\hline ')
-    for i, (n,m) in enumerate([[n,m] for n in range(2,8,2) for m in range(0,n+1, 3)]):
-        print('$ B_'+str(n)+'^'+str(m)+'$ &', 
-              ' & '.join([str(np.around(bb[i],decimals=precision)) for bb in Bs]),
-              '\\tabularnewline')
-    print('\\end{tabular}\\end{ruledtabular}')
-    print('\\label{flo:CEF_params}\n\\end{table}')
-
-
-
-
 #####################################################################################
 #####################################################################################
 
 
 
-def WybourneToStevens(ion, Adict):
-    StevDict = {}
-    for Anm in Adict:
-        n = int(Anm[1])
-        m = int(Anm[2:])
-        StevDict['B'+Anm[1:]] = RadialIntegral(ion,n)*theta(ion,n)*Adict[Anm]
-    return StevDict
-
-
-
-### Import cif file (only works for rare earths now)
+### Import cif file (works for rare earths, and some TM ions)
 
 from pcf_lib.cifsymmetryimport import FindPointGroupSymOps
 from pcf_lib.cif_import import CifFile
 
 def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, LS_Coupling = None,
-                crystalImage=False, NumIonNeighbors=1, ForceImaginary=False):
+                crystalImage=False, NumIonNeighbors=1, ForceImaginary=False, ionL = None, ionS = None):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
@@ -2823,21 +2067,46 @@ def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, LS_Coupling = None,
         if at[4] < 0: print('negative atom!',ii, at)
     centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cif, mag_ion, Zaxis, 
                                                                 Yaxis, crystalImage, NumIonNeighbors)
-    # print(ligandCharge)
+    #print(ligandCharge)
 
-    if LS_Coupling:
-        Lig = LS_Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions, 
+    if centralIon in Jion: # It's a rare earth ion
+        if LS_Coupling:
+            Lig = LS_Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions, 
                         SpinOrbitCoupling=LS_Coupling)
-    else:
-        Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
-    # Create a point charge model, assuming that a mirror plane has been found.
-    print('   Creating a point charge model...')
-    if ForceImaginary:
-        PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
-    else:
-        PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
 
-    return Lig, PCM
+        else:
+            Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
+        # Create a point charge model, assuming that a mirror plane has been found.
+        print('   Creating a point charge model...')
+        if ForceImaginary:
+            PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
+        else:
+            PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
+
+        return Lig, PCM
+
+
+
+    else: # It's not a rare earth!
+        if (ionL == None) | (ionS == None):
+            raise TypeError('\tplease specify the ionL and ionS values in the importCIF function')
+
+        if LS_Coupling: # User-provided SOC
+            Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
+                    ligandPos = ligandPositions,  SpinOrbitCoupling=LS_Coupling)
+        else: # Look up SOC in a table
+            print('    No SOC provided, assuming SOC =', np.around(SpOrbCoup[centralIon],2), 'meV for '+
+                   centralIon +"\n           (if you'd like to adjust this, use the 'LS_Coupling' command).\n")
+            Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
+                    ligandPos = ligandPositions,  SpinOrbitCoupling=SpOrbCoup[centralIon])
+
+        if ForceImaginary:
+            PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
+        else:
+            PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
+
+        return Lig, PCM
+
 
 #####################################################################################
 #####################################################################################

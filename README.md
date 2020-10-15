@@ -5,7 +5,7 @@ Created by Allen Scheie
 
    scheieao@ornl.gov
 
-Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
+Please cite   A Scheie, "PyCrystalField: Software for Calculation, Analysis, and Fitting of Crystal Electric Field Hamiltonians", arXiv preprint arXiv:2006.15151 (2020).
 
 
 

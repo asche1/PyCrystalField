@@ -7,7 +7,16 @@ Created by Allen Scheie
 
 Please cite   A. Scheie, "PyCrystalField" https://github.com/asche1/PyCrystalField (2018).
 
+
+
+
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
+
+### Update (Oct. 15, 2020) to version 2.2
+
+Added tables of radial integrals and spin orbit coupling constants for 3d and 4d transition ions.
+
+Modified importCIF so that it will work for 3d transition ions, adding example (NCNF.py) showing how to do this.
 
 ### Update (Mar. 13, 2020) to version 2.1
 

@@ -340,7 +340,7 @@ class CFLevels:
 
     def _findbands(self, matrix):
         '''used in the diagonalize_banded function'''
-        diags = np.zeros((len(matrix),len(matrix)))
+        diags = np.zeros((len(matrix),len(matrix)), dtype=np.complex128)
         for i in range(len(matrix)):
             diag = matrix.diagonal(i)
             if i == 0:
@@ -771,21 +771,21 @@ class CFLevels:
         Jy = self.opttran.Jy
         Jz = self.opttran.Jz
         #print(vv1,'\n',vv2)
-        jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,vv2)) )
-        jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,vv1)) )
-        jz00 = eliminateimag( np.dot(vv1,np.dot(Jz,vv1)) )
-        jz11 = eliminateimag( np.dot(vv2,np.dot(Jz,vv2)) )
+        jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,np.conj(vv2))) )
+        jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,np.conj(vv1))) )
+        jz00 = eliminateimag( np.dot(vv1,np.dot(Jz,np.conj(vv1))) )
+        jz11 = eliminateimag( np.dot(vv2,np.dot(Jz,np.conj(vv2))) )
         
         
-        jx01 = eliminateimag( np.dot(vv1,np.dot(Jx,vv2)) )
-        jx10 = eliminateimag( np.dot(vv2,np.dot(Jx,vv1)) )
-        jx00 = eliminateimag( np.dot(vv1,np.dot(Jx,vv1)) )
-        jx11 = eliminateimag( np.dot(vv2,np.dot(Jx,vv2)) )
+        jx01 = eliminateimag( np.dot(vv1,np.dot(Jx,np.conj(vv2))) )
+        jx10 = eliminateimag( np.dot(vv2,np.dot(Jx,np.conj(vv1))) )
+        jx00 = eliminateimag( np.dot(vv1,np.dot(Jx,np.conj(vv1))) )
+        jx11 = eliminateimag( np.dot(vv2,np.dot(Jx,np.conj(vv2))) )
         
-        jy01 = eliminateimag( np.dot(vv1,np.dot(Jy,vv2)) )
-        jy10 = eliminateimag( np.dot(vv2,np.dot(Jy,vv1)) )
-        jy00 = eliminateimag( np.dot(vv1,np.dot(Jy,vv1)) )
-        jy11 = eliminateimag( np.dot(vv2,np.dot(Jy,vv2)) )
+        jy01 = eliminateimag( np.dot(vv1,np.dot(Jy,np.conj(vv2))) )
+        jy10 = eliminateimag( np.dot(vv2,np.dot(Jy,np.conj(vv1))) )
+        jy00 = eliminateimag( np.dot(vv1,np.dot(Jy,np.conj(vv1))) )
+        jy11 = eliminateimag( np.dot(vv2,np.dot(Jy,np.conj(vv2))) )
         
         gg = 2*np.array([[np.real(jx01), np.imag(jx01), jx00],
                          [np.real(jy01), np.imag(jy01), jy00],
@@ -854,8 +854,8 @@ class CFLevels:
         p_best = optimize.minimize(fun, p0, method=method)
         ###############################################################
 
-        print(fun(p_best.x))
-        print(chisqfunc(self, **kwargs))
+        #print(fun(p_best.x))
+        #print(chisqfunc(self, **kwargs))
         initialChisq, finalChisq = chisqfunc(self, **kwargs), fun(p_best.x)
         print('\rInitial err =', initialChisq, '\tFinal err =', finalChisq)
         
@@ -1453,7 +1453,7 @@ class LS_CFLevels:
 
     def _findbands(self, matrix):
         '''used in the diagonalize_banded function'''
-        diags = np.zeros((len(matrix),len(matrix)))
+        diags = np.zeros((len(matrix),len(matrix)), dtype=np.complex128)
         for i in range(len(matrix)):
             diag = matrix.diagonal(i)
             if i == 0:
@@ -1889,46 +1889,56 @@ class LS_CFLevels:
         gsEVec = self.eigenvectors[zeroinds]
         vv1 = gsEVec[0]
         vv2 = gsEVec[1]
-        Jx, Jy, Jz = self.Jxg0.O, self.Jyg0.O, self.Jzg0.O
-        # jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,vv2)) )
-        # jz10 = eliminateimag( np.dot(vv2,np.dot(Jz,vv1)) )
-        # jz00 = eliminateimag( np.dot(vv1,np.dot(Jz,vv1)) )
-        # jz11 = eliminateimag( np.dot(vv2,np.dot(Jz,vv2)) )
-        
-        
-        # jx01 = eliminateimag( np.dot(vv1,np.dot(Jx,vv2)) )
-        # jx10 = eliminateimag( np.dot(vv2,np.dot(Jx,vv1)) )
-        # jx00 = eliminateimag( np.dot(vv1,np.dot(Jx,vv1)) )
-        # jx11 = eliminateimag( np.dot(vv2,np.dot(Jx,vv2)) )
-        
-        # jy01 = eliminateimag( np.dot(vv1,np.dot(Jy,vv2)) )
-        # jy10 = eliminateimag( np.dot(vv2,np.dot(Jy,vv1)) )
-        # jy00 = eliminateimag( np.dot(vv1,np.dot(Jy,vv1)) )
-        # jy11 = eliminateimag( np.dot(vv2,np.dot(Jy,vv2)) )
-        
-        # gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
-        #                  [np.real(jy01), np.imag(jy01), jy00],
-        #                  [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
+        Jxg0, Jyg0, Jzg0 = self.Jxg0.O, self.Jyg0.O, self.Jzg0.O
+        Jx, Jy, Jz = self.Jx.O, self.Jy.O, self.Jz.O
 
-        jz01 = np.dot(vv1,np.dot(Jz,vv2)) 
-        jz10 = np.dot(vv2,np.dot(Jz,vv1))
-        jz00 = np.dot(vv1,np.dot(Jz,vv1))
-        jz11 = np.dot(vv2,np.dot(Jz,vv2))
+
+        jzg01 = np.dot(vv1,np.dot(Jzg0,np.conj(vv2))) 
+        jzg10 = np.dot(vv2,np.dot(Jzg0,np.conj(vv1)))
+        jzg00 = np.dot(vv1,np.dot(Jzg0,np.conj(vv1)))
+        jzg11 = np.dot(vv2,np.dot(Jzg0,np.conj(vv2)))
+               
+        jxg01 = np.dot(vv1,np.dot(Jxg0,np.conj(vv2)))
+        jxg10 = np.dot(vv2,np.dot(Jxg0,np.conj(vv1)))
+        jxg00 = np.dot(vv1,np.dot(Jxg0,np.conj(vv1)))
+        jxg11 = np.dot(vv2,np.dot(Jxg0,np.conj(vv2)))
+        
+        jyg01 = np.dot(vv1,np.dot(Jyg0,np.conj(vv2)))
+        jyg10 = np.dot(vv2,np.dot(Jyg0,np.conj(vv1)))
+        jyg00 = np.dot(vv1,np.dot(Jyg0,np.conj(vv1)))
+
+
+
+        jz01 = np.dot(vv1,np.dot(Jz,np.conj(vv2)))
+        jz10 = np.dot(vv2,np.dot(Jz,np.conj(vv1)))
+        jz00 = np.dot(vv1,np.dot(Jz,np.conj(vv1)))
+        jz11 = np.dot(vv2,np.dot(Jz,np.conj(vv2)))
         
         
-        jx01 = np.dot(vv1,np.dot(Jx,vv2))
-        jx10 = np.dot(vv2,np.dot(Jx,vv1))
-        jx00 = np.dot(vv1,np.dot(Jx,vv1))
-        jx11 = np.dot(vv2,np.dot(Jx,vv2))
+        jx01 = np.dot(vv1,np.dot(Jx,np.conj(vv2)))
+        jx10 = np.dot(vv2,np.dot(Jx,np.conj(vv1)))
+        jx00 = np.dot(vv1,np.dot(Jx,np.conj(vv1)))
+        jx11 = np.dot(vv2,np.dot(Jx,np.conj(vv2)))
         
-        jy01 = np.dot(vv1,np.dot(Jy,vv2))
-        jy10 = np.dot(vv2,np.dot(Jy,vv1))
-        jy00 = np.dot(vv1,np.dot(Jy,vv1))
-        jy11 = np.dot(vv2,np.dot(Jy,vv2))
+        jy01 = np.dot(vv1,np.dot(Jy,np.conj(vv2)))
+        jy10 = np.dot(vv2,np.dot(Jy,np.conj(vv1)))
+        jy00 = np.dot(vv1,np.dot(Jy,np.conj(vv1)))
+        jy11 = np.dot(vv2,np.dot(Jy,np.conj(vv2)))
         
-        gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
-                         [np.real(jy01), np.imag(jy01), jy00],
-                         [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
+
+        JXmatrix = np.array([[jx00,jy00,jz00],[jx01,jy01,jz01],[jx10,jy10,jz10]])
+        #zmartix=[gzx,gzy,gzz],
+        zmatrix=np.matmul(np.array([jzg00,jzg01,jzg10]),np.linalg.inv(np.transpose(JXmatrix)))
+        #xmartix=[gyx,gyy,gyz]
+        xmatrix=np.matmul(np.array([jxg00,jxg01,jxg10]),np.linalg.inv(np.transpose(JXmatrix)))
+        #ymartix=[gxx,gxy,gxz]
+        ymatrix=np.matmul(np.array([jyg00,jyg01,jyg10]),np.linalg.inv(np.transpose(JXmatrix)))
+        
+        gg = np.array([xmatrix,ymatrix,zmatrix])
+
+        #gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
+        #                 [np.real(jy01), np.imag(jy01), jy00],
+        #                 [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
 
         return gg
 

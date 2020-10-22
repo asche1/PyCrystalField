@@ -2057,6 +2057,36 @@ class LS_CFLevels:
 
 
 
+# Constants for converting between Wybourne and Stevens Operators
+LambdaConstants = {}
+LambdaConstants[2] = {}
+LambdaConstants[2][0] = 1/2
+LambdaConstants[2][1] = np.sqrt(6)
+LambdaConstants[2][2] = np.sqrt(6)/2
+LambdaConstants[4] = {}
+LambdaConstants[4][0] = 1/8
+LambdaConstants[4][1] = np.sqrt(5)/2
+LambdaConstants[4][2] = np.sqrt(10)/4
+LambdaConstants[4][3] = np.sqrt(35)/2
+LambdaConstants[4][4] = np.sqrt(70)/8
+LambdaConstants[6] = {}
+LambdaConstants[6][0] = 1/16
+LambdaConstants[6][1] = np.sqrt(42)/8
+LambdaConstants[6][2] = np.sqrt(105)/16
+LambdaConstants[6][3] = np.sqrt(105)/8
+LambdaConstants[6][4] = np.sqrt(14)*3/16
+LambdaConstants[6][5] = np.sqrt(77)*3/8
+LambdaConstants[6][6] = np.sqrt(231)/16
+
+def WybourneToStevens(ion, Bdict):
+    StevDict = {}
+    for Anm in Bdict:
+        n = int(Anm[1])
+        m = int(Anm[2:])
+        StevDict['B'+Anm[1:]] = LambdaConstants[n][m]*theta(ion,n)*Bdict[Anm]
+    return StevDict
+
+
 
 #####################################################################################
 #####################################################################################

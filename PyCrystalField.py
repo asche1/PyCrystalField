@@ -601,7 +601,9 @@ class CFLevels:
 
 
     def magnetization(self, ion, Temp, Field):
-        '''field should be a 3-component vector. Temps may be an array.'''
+        '''field should be a 3-component vector. Temps may be an array.
+        Returns a three-component vector [M_x, M_y, M_z].
+        Field should be in units of Tesla, and magnetization is calculated in Bohr Magnetons'''
         if len(Field) != 3: 
             raise TypeError("Field needs to be 3-component vector")
 
@@ -663,7 +665,12 @@ class CFLevels:
 
     def susceptibility(self, ion, Temps, Field, deltaField):
         '''Computes susceptibility numerically with a numerical derivative.
-        deltaField needs to be a scalar value.'''
+        deltaField needs to be a scalar value.
+        Returns a powder average value if Field is a scalar, and returns
+        [Chi_x, Chi_y, Chi_z] if Field is a vector.
+        Field should be in Tesla, and susceptibility is calculated in Bohr Magnetons
+        per Tesla.'''
+        
         if not isinstance(deltaField, float):
             raise TypeError("Deltafield needs to be a scalar")
 

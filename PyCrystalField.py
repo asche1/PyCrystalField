@@ -266,6 +266,7 @@ class CFLevels:
         self.H = np.sum([a*b for a,b in zip(StevensOperators, Parameters)], axis=0)
         self.O = StevensOperators  #save these for a fit
         self.B = Parameters
+        # self.Ci = B # Old definition of parameters
         try:
             self.J = (len(self.H) -1.)/2
             self.opttran = opttransition(Operator.Jx(self.J).O, Operator.Jy(self.J).O.imag, Operator.Jz(self.J).O)
@@ -610,10 +611,10 @@ class CFLevels:
         # A) Define magnetic Hamiltonian
 
         #Jx = Operator.Jx(self.J)
-        #Jy = Operator.Jy(self.J)
+        # Jy = Operator.Jy(self.J).O
         #Jz = Operator.Jz(self.J)
         Jx = self.opttran.Jx
-        Jy = self.opttran.Jy
+        Jy = self.opttran.Jy * 1j
         Jz = self.opttran.Jz
 
         #print(Jx)
@@ -670,7 +671,6 @@ class CFLevels:
         [Chi_x, Chi_y, Chi_z] if Field is a vector.
         Field should be in Tesla, and susceptibility is calculated in Bohr Magnetons
         per Tesla.'''
-        
         if not isinstance(deltaField, float):
             raise TypeError("Deltafield needs to be a scalar")
 
@@ -775,7 +775,7 @@ class CFLevels:
         # Jy = Operator.Jy(self.J).O
         # Jz = Operator.Jz(self.J).O
         Jx = self.opttran.Jx
-        Jy = self.opttran.Jy
+        Jy = self.opttran.Jy*1j
         Jz = self.opttran.Jz
         #print(vv1,'\n',vv2)
         jz01 = eliminateimag( np.dot(vv1,np.dot(Jz,np.conj(vv2))) )
@@ -910,7 +910,7 @@ class CFLevels:
 
 
 from numba import njit, jitclass
-from numba import float64
+from numba import float64 #, complex128
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -1368,6 +1368,7 @@ class LS_CFLevels:
         self.B = Parameters
         self.S = S
         self.L = L
+        # self.Ci = B  #old definition of B
 
         # Define spin orbit coupling Hamiltonian
         Sx = LSOperator.Sx(L, S)
@@ -1458,6 +1459,7 @@ class LS_CFLevels:
         self.eigenvalues[abs(self.eigenvalues) < tol] = 0.0
         self.eigenvectors[abs(self.eigenvectors) < tol] = 0.0
 
+    # Shared
     def _findbands(self, matrix):
         '''used in the diagonalize_banded function'''
         diags = np.zeros((len(matrix),len(matrix)), dtype=np.complex128)
@@ -1497,18 +1499,12 @@ class LS_CFLevels:
                                                     gamma=gamma)).real).astype('float64')
                 #intensity += ((pn * mJn * self._lorentzian(Earray, deltaE, Width)).real).astype('float64')
 
-        ## List comprehension: turns out this way was slower.
-        # intensity = np.sum([
-        #     np.exp(-beta *self.eigenvalues[i])/Z *\
-        #     self._transition(eigenkets[i], eigenkets[j]) *\
-        #     self._voigt(x=Earray, x0=(self.eigenvalues[j] - self.eigenvalues[i]), 
-        #         alpha=ResFunc(self.eigenvalues[j] - self.eigenvalues[i]), gamma=gamma)
-        #     for i in range(len(eigenkets)) for j in range(len(eigenkets))
-        #     ], axis = 0)
 
         kpoverk = np.sqrt((Ei - Earray)/Ei) #k'/k = sqrt(E'/E)
         return intensity * kpoverk
 
+
+    # Shared
     def neutronSpectrum2D(self, Earray, Qarray, Temp, Ei, ResFunc, gamma, DebyeWaller, Ion):
         intensity1D = self.neutronSpectrum(Earray, Temp, Ei, ResFunc,  gamma)
 
@@ -1536,16 +1532,18 @@ class LS_CFLevels:
             print(ax, ay, az)
             raise ValueError("non-real amplitude. Error somewhere.")
             
+    # Shared
     def _lorentzian(self, x, x0, gamma):
         return 1/np.pi * (0.5*gamma)/((x-x0)**2 + (0.5*gamma)**2)
 
+    # Shared
     def _voigt(self, x, x0, alpha, gamma):
         """ Return the Voigt line shape at x with Lorentzian component FWHM gamma
         and Gaussian component FWHM alpha."""
         sigma = (0.5*alpha) / np.sqrt(2 * np.log(2))
         return np.real(wofz(((x-x0) + 1j*(0.5*gamma))/sigma/np.sqrt(2))) / sigma\
                                                             /np.sqrt(2*np.pi)
-
+    # Shared
     def _Re(self,value):
         thresh = 1e-9
         if np.size(value) == 1 & isinstance(value, complex):
@@ -1558,6 +1556,7 @@ class LS_CFLevels:
                 return (value.real)
             else: return value
 
+    # Shared
     def printEigenvectors(self):
         '''prints eigenvectors and eigenvalues in a matrix'''
         try:
@@ -1800,89 +1799,6 @@ class LS_CFLevels:
 
 
 
-    def LplusS_expval(self, Temp, Field, deltaField):
-        '''computes average of L + S. Used for g tensor calculation. This is 
-        the same as magnetization but with L+S, not L+'''
-        if len(Field) != 3: 
-            raise TypeError("Field needs to be 3-component vector")
-
-        # A) Define magnetic Hamiltonian
-        muB = 5.7883818012e-2  # meV/T
-        #mu0 = np.pi*4e-7       # T*m/A
-        JdotB_0 = muB*(Field[0]*self.Jxg0 + Field[1]*self.Jyg0 + Field[2]*self.Jzg0)
-        # print(JdotB_0)
-
-        Delta = deltaField*np.array([1,0,0])
-        FieldPD = Field + Delta
-        JdotB_p1x = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
-        FieldPD = Field - Delta
-        JdotB_m1x = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
-
-        Delta = deltaField*np.array([0,1,0])
-        FieldPD = Field + Delta
-        JdotB_p1y = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
-        FieldPD = Field - Delta
-        JdotB_m1y = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
-
-        Delta = deltaField*np.array([0,0,1])
-        FieldPD = Field + Delta
-        JdotB_p1z = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
-        FieldPD = Field - Delta
-        JdotB_m1z = muB*(FieldPD[0]*self.Jxg0 + FieldPD[1]*self.Jyg0 + FieldPD[2]*self.Jzg0)
-
-        # B) Diagonalize full Hamiltonian
-        # first do the Delta=0 field:
-        FieldHam = self.H_CEF.O + self.H_SOC.O + JdotB_0.O
-        diagonalH = LA.eigh(FieldHam)
-
-        minE = np.amin(diagonalH[0])
-        evals = diagonalH[0] - minE
-
-        # Compute LdotS for every eigenvector
-        LdotS_vals = []
-        for ev in diagonalH[1].T:
-            jjxx = self._Re(np.dot(np.conjugate(ev),np.dot(self.Jx.O,ev)))
-            jjyy = self._Re(np.dot(np.conjugate(ev),np.dot(self.Jy.O,ev)))
-            jjzz = self._Re(np.dot(np.conjugate(ev),np.dot(self.Jz.O,ev)))
-
-            LdotS_vals.append([jjxx, jjyy, jjzz])
-        LdotS_vals = np.array(LdotS_vals)
-
-        # Now do the Delta =/= 0:
-        Evals_pm = []
-        
-        for JdotB in [JdotB_p1x, JdotB_m1x, JdotB_p1y, JdotB_m1y, JdotB_p1z, JdotB_m1z]:   
-            FieldHam = self.H_CEF.O + self.H_SOC.O + JdotB.O
-            diagonalH = LA.eigh(FieldHam)
-            
-            Evals_pm.append(diagonalH[0])
-        minE = np.amin(Evals_pm)
-        Evals_pm -= minE
-
-        Evals_pm = np.array(Evals_pm).T
-
-        # C) Compute derivative of energy w.r.t. field:
-        Mderivs = np.zeros((len(Evals_pm),3))
-        for i, ev in enumerate(Evals_pm):
-            Mderivs[i]=[(ev[0] - ev[1])/(2*deltaField),  
-                        (ev[2] - ev[3])/(2*deltaField),  
-                        (ev[4] - ev[5])/(2*deltaField)]
-        k_B = 8.6173303e-2  # meV/K
-        #print(Mderivs)
-
-        if (isinstance(Temp, int) or isinstance(Temp, float)):
-            Zz = np.sum(np.exp(-evals/(k_B*Temp)))
-            BoltzmannWeights = np.exp(-evals/(k_B*Temp))/Zz
-            Magnetization = np.dot(BoltzmannWeights,Mderivs)/muB  
-                            #divide by muB to convert from meV/T  
-            WeightedLdotS = np.dot(BoltzmannWeights, LdotS_vals)
-
-            return Magnetization, WeightedLdotS
-                        
-        else: print('Temp must be float.')
-
-
-
     def gtensor(self):
         '''Returns g tensor computed numerically'''
         def eliminateimag(number):
@@ -2009,22 +1925,6 @@ class LS_CFLevels:
         return result
 
 
-    def testEigenvectors(self):
-        """Tests if eigenvectors are really eigenvectors"""
-        print('testing eigenvectors... (look for large values)')
-        for i in range(len(self.eigenvalues)):
-            print(np.around(
-                np.dot(self.H_SOC.O+self.H_CEF.O,self.eigenvectors[i]) -\
-                 self.eigenvectors[i]*self.eigenvaluesNoNorm[i],
-                10))
-
-        # print('\n Sum rule (two values should be equal):')
-        # TotalTransition = 0
-        # for i, ev in enumerate(self.eigenvectors):
-        #     TotalTransition += self._transition(Ket(self.eigenvectors[1]),Ket(ev))
-        # print(TotalTransition, '  ', self.S*(self.J+1))
-
-
     def printLaTexEigenvectors(self):
         '''prints eigenvectors and eigenvalues in the output that Latex can read'''
         # Define S array
@@ -2058,7 +1958,6 @@ class LS_CFLevels:
                 ' & '.join([str(eevv) for eevv in self._Re(sortEVec[i])]), '\\tabularnewline')
         print('\\end{tabular}\\end{ruledtabular}')
         print('\\label{flo:Eigenvectors}\n\\end{landscape}\n\\end{table*}')
-
 
 
 

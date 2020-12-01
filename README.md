@@ -12,6 +12,10 @@ Please cite   A Scheie, "PyCrystalField: Software for Calculation, Analysis, and
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (Dec. 1, 2020) to version 2.2.1
+
+Fixed bug in magnetization calculations so that M_y is calculated properly. (Oct 15 update introduced a bug which set J_y imaginary components to real when calculating magnetization.)
+
 ### Update (Oct. 15, 2020) to version 2.2
 
 Added tables of radial integrals and spin orbit coupling constants for 3d and 4d transition ions.

@@ -90,6 +90,17 @@ class CifFile:
 					line = lines[i]
 				i -= 1
 			i+=1
+			
+		if not sites:
+			# sites list is empty
+			# Without any atoms we can't do anything so this is a fatal error.
+			raise RuntimeError("No atomic sites were found when importing cif file")
+
+		if not symops:
+			# symops list is empy
+			# It may be that we don't have any symops (a supercell perhaps) so this is
+			# a warning rather than an error.
+			raise RuntimeWarning("No symmetry operations were found in the cif file")
 
 		self.asymunitcell = list(sites)
 		# Operate on asymmetric unit cell with all symops and then eliminate duplicates

@@ -77,7 +77,8 @@ class CifFile:
 
 			# Find the symmetry operations
 			elif (line.startswith("loop_") and 
-					(("_space_group_symop_operation_xyz" in lines[i+1]
+					(("_space_group_symop_id" in lines[i+1]
+							or "_space_group_symop_operation_xyz" in lines[i+1]
 							or "_symmetry_equiv_pos_site_id" in lines[i+1])
 							or "_symmetry_equiv_pos_as_xyz" in lines[i+1])):
 				while ('_' in line):  #jump ahead to where the symops are

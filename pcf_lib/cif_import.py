@@ -13,6 +13,8 @@ class CifFile:
 		lines = f.readlines()
 		f.close()
 		i=0
+		sites = []
+		symops = []
 		while i < len(lines):
 			line = lines[i]
 
@@ -36,7 +38,6 @@ class CifFile:
 				print("Importing atoms")
 				i+=1
 				line = lines[i]
-				sites = []
 				jj = 0   # index for keeping track of labels
 				while (line != " \r\n" and line != "\r\n" and line !='\n' 
 						and line !=' \n' and line !='loop_\n' and not line.startswith('#')): #loop until we hit a blank spot
@@ -76,10 +77,10 @@ class CifFile:
 
 			# Find the symmetry operations
 			elif (line.startswith("loop_") and 
-					(("_space_group_symop_operation_xyz" in lines[i+1]
+					(("_space_group_symop_id" in lines[i+1]
+							or "_space_group_symop_operation_xyz" in lines[i+1]
 							or "_symmetry_equiv_pos_site_id" in lines[i+1])
 							or "_symmetry_equiv_pos_as_xyz" in lines[i+1])):
-				symops = []
 				while ('_' in line):  #jump ahead to where the symops are
 					i+=1
 					line = lines[i]
@@ -90,6 +91,17 @@ class CifFile:
 					line = lines[i]
 				i -= 1
 			i+=1
+			
+		if not sites:
+			# sites list is empty
+			# Without any atoms we can't do anything so this is a fatal error.
+			raise RuntimeError("No atomic sites were found when importing cif file")
+
+		if not symops:
+			# symops list is empy
+			# It may be that we don't have any symops (a supercell perhaps) so this is
+			# a warning rather than an error.
+			raise RuntimeWarning("No symmetry operations were found in the cif file")
 
 		self.asymunitcell = list(sites)
 		# Operate on asymmetric unit cell with all symops and then eliminate duplicates
@@ -354,3 +366,4 @@ class CifFile:
 #YbTiO.MultipleScattering(ei=1.0, threshold=0.1, peak = [0,0,2], xcut=np.array([1,1,1]), ycut = np.array([1,1,-2]))
 #print(' ')
 #YbTiO.MultipleScattering(ei=5, threshold=0.1, peak = [-4,2,2], xcut=np.array([1,-1,0]), ycut = np.array([1,1,-2]))
+	

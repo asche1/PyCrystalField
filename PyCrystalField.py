@@ -296,6 +296,7 @@ class CFLevels:
 
 
     def newCoeff(self, newcoeff):
+        self.B = np.array(newcoeff)
         newH = np.sum([a*b for a,b in zip(self.O, newcoeff)], axis=0)
         self.diagonalize(newH)
 
@@ -1437,6 +1438,7 @@ class LS_CFLevels:
 
 
     def newCoeff(self, newcoeff):
+        self.B = np.array(newcoeff)
         newH = np.sum([a*b for a,b in zip(self.O, newcoeff)], axis=0)
         self.diagonalize(newH)
 

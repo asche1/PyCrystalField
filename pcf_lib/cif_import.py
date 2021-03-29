@@ -15,8 +15,15 @@ class CifFile:
 		i=0
 		sites = []
 		symops = []
+		dataglobal = 0
 		while i < len(lines):
 			line = lines[i]
+
+			# Check if we're in first phase:
+			if 'data_global' in line:
+				print(line, i, dataglobal)
+				dataglobal += 1
+				if dataglobal > 1: break #new phase!
 
 			#Find the unit cell parameters
 			if line.startswith('_cell_length_a'):
@@ -356,6 +363,7 @@ class CifFile:
 
 
 
+
 ###############################################################################
 #Test with Yb2Ti2O7
 #YbTiO = CifFile("StoichiometricYbTiO.cif")
@@ -366,4 +374,5 @@ class CifFile:
 #YbTiO.MultipleScattering(ei=1.0, threshold=0.1, peak = [0,0,2], xcut=np.array([1,1,1]), ycut = np.array([1,1,-2]))
 #print(' ')
 #YbTiO.MultipleScattering(ei=5, threshold=0.1, peak = [-4,2,2], xcut=np.array([1,-1,0]), ycut = np.array([1,1,-2]))
+
 	

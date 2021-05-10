@@ -24,6 +24,7 @@ class CifFile:
 				print(line, i, dataglobal)
 				dataglobal += 1
 				if dataglobal > 1: break #new phase!
+			if '=END' in line: break
 
 			#Find the unit cell parameters
 			if line.startswith('_cell_length_a'):
@@ -71,7 +72,10 @@ class CifFile:
 						modsite[2] = self._destringify(site[fract_x])
 						modsite[3] = self._destringify(site[fract_y])
 						modsite[4] = self._destringify(site[fract_z])
-						modsite[7] = self._destringify(site[occ])
+						try:
+							modsite[7] = self._destringify(site[occ])
+						except IndexError:
+							modsite.extend([self._destringify(site[occ])] * (len(modsite)-5))
 						if sitesymorder != None:
 							modsite[8] = int(site[sitesymorder])
 						modsite.append(line.split()[-1])
@@ -363,16 +367,3 @@ class CifFile:
 
 
 
-
-###############################################################################
-#Test with Yb2Ti2O7
-#YbTiO = CifFile("StoichiometricYbTiO.cif")
-#s_length = {'O2-': 5.803, 'Ti4+': -3.438, 'Yb3+': 12.43}
-#YbTiO.StructureFactor(s_length,5)
-#print(YbTiO.SF)
-#print(' ')
-#YbTiO.MultipleScattering(ei=1.0, threshold=0.1, peak = [0,0,2], xcut=np.array([1,1,1]), ycut = np.array([1,1,-2]))
-#print(' ')
-#YbTiO.MultipleScattering(ei=5, threshold=0.1, peak = [-4,2,2], xcut=np.array([1,-1,0]), ycut = np.array([1,1,-2]))
-
-	

@@ -16,6 +16,7 @@ from pcf_lib.StevensOperators import StevensOp, LS_StevensOp
 from pcf_lib.PointChargeConstants import *
 from pcf_lib.PCF_misc_functions import *
 from numba import njit, jitclass
+from copy import deepcopy
 
 # abspath = os.path.abspath(__file__)
 # dname = os.path.dirname(abspath)
@@ -497,6 +498,15 @@ class CFLevels:
 
     def neutronSpectrum2D(self, Earray, Qarray, Temp, Ei, ResFunc, gamma, DebyeWaller, Ion):
         intensity1D = self.neutronSpectrum(Earray, Temp, Ei, ResFunc,  gamma)
+
+        # Scale by Debye-Waller Factor
+        DWF = np.exp(1./3. * Qarray**2 * DebyeWaller**2)
+        # Scale by form factor
+        FormFactor = RE_FormFactor(Qarray,Ion)
+        return np.outer(intensity1D, DWF*FormFactor)
+
+    def normalizedNeutronSpectrum2D(self, Earray, Qarray, Temp, ResFunc, gamma, Ion, DebyeWaller=0):
+        intensity1D = self.normalizedNeutronSpectrum(Earray, Temp, ResFunc,  gamma)
 
         # Scale by Debye-Waller Factor
         DWF = np.exp(1./3. * Qarray**2 * DebyeWaller**2)
@@ -2006,54 +2016,98 @@ def WybourneToStevens(ion, Bdict):
 from pcf_lib.cifsymmetryimport import FindPointGroupSymOps
 from pcf_lib.cif_import import CifFile
 
-def importCIF(ciffile, mag_ion, Zaxis = None, Yaxis = None, LS_Coupling = None,
-                crystalImage=False, NumIonNeighbors=1, ForceImaginary=False, ionL = None, ionS = None):
+def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling = None,
+                crystalImage=False, NumIonNeighbors=1, ForceImaginary=False, 
+                ionL = None, ionS = None, CoordinationNumber = None):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
+    if mag_ion == None: #take the first rare earth in the cif file as the central ion
+        for asuc in cif.asymunitcell:
+            if asuc[1] in ['Sm','Pm','Nd','Ce','Dy','Ho','Tm','Pr','Er','Tb','Yb']:
+                mag_ion = asuc[0]
+
+
+    ## Check for multiply defined atoms
+    differentPositionsA = []
+    differentPositionsB = []
     for ii, at in enumerate(cif.unitcell):
         if at[4] < 0: print('negative atom!',ii, at)
-    centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cif, mag_ion, Zaxis, 
-                                                                Yaxis, crystalImage, NumIonNeighbors)
-    #print(ligandCharge)
 
-    if centralIon in Jion: # It's a rare earth ion
-        if LS_Coupling:
-            Lig = LS_Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions, 
-                        SpinOrbitCoupling=LS_Coupling)
+        if at[0][-1] in ["'", "B", "b"]:
+            differentPositionsA.append(at[0])
+            differentPositionsB.append(at[0].replace("'","").replace("B","A").replace("b","a"))
 
-        else:
-            Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
-        # Create a point charge model, assuming that a mirror plane has been found.
-        print('   Creating a point charge model...')
-        if ForceImaginary:
-            PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
-        else:
-            PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
+    if len(differentPositionsA) > 0:
+        cif_a = deepcopy(cif)
+        cif_b = deepcopy(cif)
 
+        unitcellA = []
+        unitcellB = []
+        for ii, at in enumerate(cif.unitcell):
+            if at[0] in differentPositionsA:
+                unitcellA.append(at)
+            elif at[0] in differentPositionsB:
+                unitcellB.append(at)
+            else:
+                unitcellA.append(at)
+                unitcellB.append(at)
+
+        cif_a.unitcell = unitcellA
+        cif_b.unitcell = unitcellB
+
+        cifs = [cif, cif_a, cif_b]
+    else:
+        cifs = [cif]
+
+
+    output = []
+
+    for cf in cifs:
+
+        ## Calculate the ligand positions
+        centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cf, mag_ion, Zaxis, 
+                                                                    Yaxis, crystalImage, 
+                                                                    NumIonNeighbors,CoordinationNumber)
+        #print(ligandCharge)
+        if centralIon in Jion: # It's a rare earth ion
+            if LS_Coupling:
+                Lig = LS_Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions, 
+                            SpinOrbitCoupling=LS_Coupling)
+
+            else:
+                Lig = Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions)
+            # Create a point charge model, assuming that a mirror plane has been found.
+            print('   Creating a point charge model...')
+            if ForceImaginary:
+                PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
+            else:
+                PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
+
+
+        else: # It's not a rare earth!
+            if (ionL == None) | (ionS == None):
+                raise TypeError('\tplease specify the ionL and ionS values in the importCIF function')
+
+            if LS_Coupling: # User-provided SOC
+                Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
+                        ligandPos = ligandPositions,  SpinOrbitCoupling=LS_Coupling)
+            else: # Look up SOC in a table
+                print('    No SOC provided, assuming SOC =', np.around(SpOrbCoup[centralIon],2), 'meV for '+
+                       centralIon +"\n           (if you'd like to adjust this, use the 'LS_Coupling' command).\n")
+                Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
+                        ligandPos = ligandPositions,  SpinOrbitCoupling=SpOrbCoup[centralIon])
+
+            if ForceImaginary:
+                PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
+            else:
+                PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
+
+        output.append([Lig, PCM])
+
+    if len(output) == 1:
         return Lig, PCM
-
-
-
-    else: # It's not a rare earth!
-        if (ionL == None) | (ionS == None):
-            raise TypeError('\tplease specify the ionL and ionS values in the importCIF function')
-
-        if LS_Coupling: # User-provided SOC
-            Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
-                    ligandPos = ligandPositions,  SpinOrbitCoupling=LS_Coupling)
-        else: # Look up SOC in a table
-            print('    No SOC provided, assuming SOC =', np.around(SpOrbCoup[centralIon],2), 'meV for '+
-                   centralIon +"\n           (if you'd like to adjust this, use the 'LS_Coupling' command).\n")
-            Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
-                    ligandPos = ligandPositions,  SpinOrbitCoupling=SpOrbCoup[centralIon])
-
-        if ForceImaginary:
-            PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
-        else:
-            PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
-
-        return Lig, PCM
+    else: return output
 
 
 #####################################################################################

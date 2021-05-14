@@ -214,6 +214,7 @@ class Ligands:
         newobj = CFLevels.Hamiltonian(self.H)
         newobj.O = OOO
         newobj.B = nonzeroB
+        newobj.ion = self.ion
         return newobj
 
 
@@ -778,8 +779,19 @@ class CFLevels:
             else:
                 return number
 
-        zeroinds = np.where(np.around(self.eigenvalues,10)==0)
+        zeroinds = np.where(np.around(self.eigenvalues,5)==0)
         gsEVec = self.eigenvectors[zeroinds]
+
+        if len(zeroinds[0]) == 1:
+            print('\tWARNING: only one ground state eivenvector found.')
+
+            zeroinds = np.where(np.around(self.eigenvalues,1)==0)
+            gsEVec = self.eigenvectors[zeroinds]
+            if len(zeroinds[0]) == 2:
+                print('\t\t Including another at {} meV'.format(self.eigenvalues[zeroinds[1]]))
+            else: raise ValueError('Non-doublet ground state!')
+
+
         vv1 = np.around(gsEVec[0],10)
         vv2 = np.around(gsEVec[1],10)
         # Jx = Operator.Jx(self.J).O
@@ -808,7 +820,7 @@ class CFLevels:
         gg = 2*np.array([[np.real(jx01), np.imag(jx01), jx00],
                          [np.real(jy01), np.imag(jy01), jy00],
                          [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
-        return gg
+        return gg*LandeGFactor(self.ion)
 
 
     # def gtensor(self, field=0.1, Temp=0.1):

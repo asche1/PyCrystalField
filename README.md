@@ -11,6 +11,12 @@ Please cite  Scheie, A. "PyCrystalField: Software for Calculation, Analysis, and
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (May 14, 2021) to version 2.2.2
+
+Fixed bug in g tensor calculations so that Lande g factor is included in rare earth ions.
+
+Modified importCIF to (a) import only the first phase listed in a .cif file, (b) treat the first listed rare earth ion as the central ion if none is specified, (c) import multiply defined ligand positions, outputting all possible structures, (d) allow the user to specify a certain number of ions in the coordination sphere rather than categorizing them by ion type (which is still the default).
+
 ### Update (Dec. 1, 2020) to version 2.2.1
 
 Fixed bug in magnetization calculations so that M_y is calculated properly. (Oct 15 update introduced a bug which set J_y imaginary components to real when calculating magnetization.)

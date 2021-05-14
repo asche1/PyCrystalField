@@ -23,6 +23,14 @@ from copy import deepcopy
 # os.chdir(dname)
 
 
+print('*'*55 + '\n'+
+    '*                PyCrystalField 2.2.2                 *\n' +
+    #'*  Code to calculate the crystal Field Hamiltonian    *\n' +
+    #'*   of magentic ions.                                 *\n' +
+    '*  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
+    '*    <https://doi.org/10.1107/S160057672001554X>      *\n' + '*'*55+'\n')
+
+
 
 
 JionTM = {}   # [S, L, J]

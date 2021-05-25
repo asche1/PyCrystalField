@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pcf_lib.cif_import import CifFile
 from pcf_lib.plotLigands import plotPCF
+from pcf_lib.MomentOfIntertia import findZaxis
 
 # def importCIF(ciffile, mag_ion):
 # 	'''Call this function to generate a PyCrystalField point charge model
@@ -20,7 +21,7 @@ from pcf_lib.plotLigands import plotPCF
 
 
 def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = False, 
-						NumIonNeighbors = 3):
+						NumIonNeighbors = 3, CoordinationNumber=None):
 	# Step 1: identify the ion in the asymmetric unit cell
 	site = []
 	for i,auc in enumerate(self.asymunitcell):
@@ -97,6 +98,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 
 			except IndexError: # No mirrors and no rotations
 				print('    No mirror planes and no rotations in point group:', PGS)
+				NoMirrorNoRotation = True
 				YAXIS = np.array([0,1.,0])
 				ZAXIS = np.array([0,0,1.])
 				inversion= False
@@ -140,20 +142,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 			# print("    No mirror plane orthogonal to the specified Y axis.")
 			inversion=False
 
-	## Now, find the x axis as the cross product of the two
-	XAXIS = self.latt.ABC(np.cross(self.latt.cartesian(YAXIS), self.latt.cartesian(ZAXIS)))
-	XAXIS = XAXIS/np.linalg.norm(XAXIS)
-	YAXIS = YAXIS/np.linalg.norm(YAXIS)
-	ZAXIS = ZAXIS/np.linalg.norm(ZAXIS)
 
-	cartXAXIS = self.latt.cartesian(XAXIS)
-	cartXAXIS /= np.linalg.norm(cartXAXIS)
-	cartYAXIS = self.latt.cartesian(YAXIS)
-	cartYAXIS /= np.linalg.norm(cartYAXIS)
-	cartZAXIS = self.latt.cartesian(ZAXIS)
-	cartZAXIS /= np.linalg.norm(cartZAXIS)
-
-	# return XAXIS, YAXIS, ZAXIS
 
 
 	############### Now, find the nearest neighbors
@@ -180,51 +169,96 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 	# Step 2: sort the list in ascending order
 	sortedNeighborArgs = np.argsort(distlist)
 
-	nearestNeighbors = []
-	### Find the nearest neighbor ligands that are not on the same site
-	jjj, kkk = 0,0
-	NNLigandList = []
-	while len(NNLigandList) < NumIonNeighbors:
-		if neighborlist[sortedNeighborArgs[jjj]][1] > 1e-4:
-			#nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
-			#break
-			try:
-				if neighborlist[sortedNeighborArgs[jjj]][0] == NNLigandList[-1]:
-					pass
-				else:
-					NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
-			except IndexError:  NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
-			# print(neighborlist[sortedNeighborArgs[jjj]][0], NNLigandList)
-		else: 
-			kkk += 1   #for keeping track of where the first ligand is.
-		jjj+=1
+	# If coordination number is specified, only take those ions
+	if CoordinationNumber != None:
+		nearestNeighbors = [neighborlist[v] for v in sortedNeighborArgs[1:CoordinationNumber+1]] 
+		NNLigandList = [neighborlist[v][0] for v in sortedNeighborArgs[1:CoordinationNumber+1]] 
+
+		for i, nnll  in enumerate(list(set(NNLigandList))):
+			numN = [nn[0] for nn in nearestNeighbors].count(nnll)
+			print('   Identified', numN, nnll,'ligands.')
+
+	# otherwise, we search through neighbors by common ions.
+	else:
+		nearestNeighbors = []
+		### Find the nearest neighbor ligands that are not on the same site
+		jjj, kkk = 0,0
+		NNLigandList = []
+		while len(NNLigandList) < NumIonNeighbors:
+			if neighborlist[sortedNeighborArgs[jjj]][1] > 1e-4:
+				#nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
+				#break
+				try:
+					if neighborlist[sortedNeighborArgs[jjj]][0] == NNLigandList[-1]:
+						pass
+					else:
+						NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
+				except IndexError:  NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
+				# print(neighborlist[sortedNeighborArgs[jjj]][0], NNLigandList)
+			else: 
+				kkk += 1   #for keeping track of where the first ligand is.
+			jjj+=1
 
 
-	for i in range(NumIonNeighbors):
-		print(' Next'*i+' Nearest ligand:', NNLigandList[i])
-	#nearestLigand = NNLigandList[0]
-	addedLigands = []
-	for sna in sortedNeighborArgs[kkk:]:
-		#if neighborlist[sna][0] == nearestLigand:
-		if neighborlist[sna][0] in NNLigandList:
+		for i in range(NumIonNeighbors):
+			print(' Next'*i+' Nearest ligand:', NNLigandList[i])
+		#nearestLigand = NNLigandList[0]
+		addedLigands = []
+		for sna in sortedNeighborArgs[kkk:]:
+			#if neighborlist[sna][0] == nearestLigand:
+			if neighborlist[sna][0] in NNLigandList:
 
-			try:
-				if neighborlist[sna][0] == addedLigands[-1]: 
-					pass
-				else: addedLigands.append(neighborlist[sna][0])
-			except IndexError:
-				addedLigands.append(neighborlist[sna][0])
-			if (len(addedLigands) > NumIonNeighbors): 
-				break
-			nearestNeighbors.append(neighborlist[sna])
-		else: break
-		#if len(nearestNeighbors) >= jjj: break
+				try:
+					if neighborlist[sna][0] == addedLigands[-1]: 
+						pass
+					else: addedLigands.append(neighborlist[sna][0])
+				except IndexError:
+					addedLigands.append(neighborlist[sna][0])
+				if (len(addedLigands) > NumIonNeighbors): 
+					break
+				nearestNeighbors.append(neighborlist[sna])
+			else: break
+			#if len(nearestNeighbors) >= jjj: break
 
-	for i in range(len(list(set(NNLigandList)))):
-		numN = [nn[0] for nn in nearestNeighbors].count(NNLigandList[i])
-		print('   Identified', numN, NNLigandList[i],'ligands.')
+		for i in range(len(list(set(NNLigandList)))):
+			numN = [nn[0] for nn in nearestNeighbors].count(NNLigandList[i])
+			print('   Identified', numN, NNLigandList[i],'ligands.')
+
+
+
+	## Step 2b: if there is no mirrors and no rotations about the central ion,
+		# We use a moment of intertia calculation to identify the z axis
+	try:
+		if NoMirrorNoRotation:
+			#print('\t using a moment of intertia calculation to set axes.')
+			ZAXIS, YAXIS = findZaxis([nn[2] for nn in nearestNeighbors])
+			XAXIS = np.cross(YAXIS, ZAXIS)
+			XAXIS = self.latt.ABC(XAXIS)
+			YAXIS = self.latt.ABC(YAXIS)
+			ZAXIS = self.latt.ABC(ZAXIS)
+	except UnboundLocalError:
+		## Now, find the x axis as the cross product of the Yaxis and Z axis
+		XAXIS = self.latt.ABC(np.cross(self.latt.cartesian(YAXIS), self.latt.cartesian(ZAXIS)))
+
+	XAXIS = XAXIS/np.linalg.norm(XAXIS)
+	YAXIS = YAXIS/np.linalg.norm(YAXIS)
+	ZAXIS = ZAXIS/np.linalg.norm(ZAXIS)
+
+	cartXAXIS = self.latt.cartesian(XAXIS)
+	cartXAXIS /= np.linalg.norm(cartXAXIS)
+	cartYAXIS = self.latt.cartesian(YAXIS)
+	cartYAXIS /= np.linalg.norm(cartYAXIS)
+	cartZAXIS = self.latt.cartesian(ZAXIS)
+	cartZAXIS /= np.linalg.norm(cartZAXIS)
+	# return XAXIS, YAXIS, ZAXIS
+
+
 
 	## Step 3: rotate local axes so z axis is along the axis identified above
+
+
+
+
 	ligandPositions = []
 	ligandCharge = []
 	for nn in nearestNeighbors:
@@ -242,8 +276,14 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 				ligandCharge.append(-1)
 			else: 
 				ligandCharge.append(-2)
+	if np.all(['C' in at[0] for at in nearestNeighbors]):
+		print('Carbon in all:', nearestNeighbors)
+		ligandCharge = np.array(ligandCharge)/3
+	elif np.all(['N' in at[0] for at in nearestNeighbors]):
+		ligandCharge = np.array(ligandCharge)*2
 	if NoCharges: 
-		print('    No charges found in cif file... guessing the ligands are charged',ligandCharge[0],','+\
+		print('    No charges found in cif file... guessing the '+\
+			NNLigandList[0]+' ligands are charged',ligandCharge[0],','+\
 						'\n       and assuming the central ion has a 3+ charge.')
 		centralIon = centralIon + '3+'
 

@@ -79,6 +79,11 @@ class CifFile:
 						if sitesymorder != None:
 							modsite[8] = int(site[sitesymorder])
 						modsite.append(line.split()[-1])
+						# Move to middle of unit cell
+						for jj in range(2,5):
+							modsite[jj] -= int(modsite[jj])
+							if modsite[jj] < 0:
+								modsite[jj] += 1
 						sites.append(modsite)
 						i+=1
 					try:
@@ -96,13 +101,22 @@ class CifFile:
 					i+=1
 					line = lines[i]
 				while (line != " \r\n" and line != "\r\n" and line != "\n" and line != " \n" and line != 'loop_\n'): #loop until we hit a blank spot
-					quoteloc = [ii for ii, ltr in enumerate(line) if ltr == '\'']
-					symops.append(line[quoteloc[0]+1:quoteloc[1]])
+					if '\'' in line:
+						quoteloc = [ii for ii, ltr in enumerate(line) if ltr == '\'']
+						symops.append(line[quoteloc[0]+1:quoteloc[1]])
+					else:
+						lnsplit = line.split(' ')
+						for ln in lnsplit:
+							if ',' in ln:  # Identify the symmetry operation by the presence of commas
+								symops.append(ln.strip())
+								break
 					i+=1
 					line = lines[i]
 				i -= 1
 			i+=1
 			
+		# print(symops)
+
 		if not sites:
 			# sites list is empty
 			# Without any atoms we can't do anything so this is a fatal error.
@@ -157,18 +171,26 @@ class CifFile:
 		for sy in symops:
 			for at in sites:
 				new_at = self.SymOperate(sy,at)
+				# Move inside unit cell
+				for jj in range(2,5):
+					new_at[jj] -= int(new_at[jj])
+					if new_at[jj] < 0:
+						new_at[jj] += 1
+
 				# test if new atom is in array already
 				if self._duplicaterow(new_at, unitcell):
 					# Test if new atom is outside the unit cell
 					unitcell.append(new_at)
 					i+=1
-		print('  ', i, "atoms added")
-
+		
+		#print('  ', i, "atoms added")
 		## Eliminate all atoms outside the unit cell
 		self.unitcell = []
 		for at in unitcell:
 			if np.all(np.array(at[2:5])>=0):
-				self.unitcell.append(at)
+				if np.all(np.array(at[2:5])<=1):
+					self.unitcell.append(at)
+		print('  ', len(self.unitcell), "atoms added")
 
 		#print sum(sites[i][8] for i in xrange(len(sites))), "symmetry-equivalent sites"
 
@@ -345,11 +367,11 @@ class CifFile:
 		"""Determine whether a row exists in an array. Returns False if it does"""
 		value = False
 		for r in array:
-			if (r[0] == row[0] and
+			if (#r[0] == row[0] and
 				r[1] == row[1] and
-				round(r[2],3) == round(row[2],3) and
-				round(r[3],3) == round(row[3],3) and
-				round(r[4],3) == round(row[4],3)  ):
+				round(r[2] - row[2],3) == 0 and
+				round(r[3] - row[3],3) == 0 and
+				round(r[4] - row[4],3) == 0  ):
 
 				value = True
 		return not value
@@ -367,3 +389,14 @@ class CifFile:
 
 
 
+
+###############################################################################
+#Test with Yb2Ti2O7
+#YbTiO = CifFile("StoichiometricYbTiO.cif")
+#s_length = {'O2-': 5.803, 'Ti4+': -3.438, 'Yb3+': 12.43}
+#YbTiO.StructureFactor(s_length,5)
+#print(YbTiO.SF)
+#print(' ')
+#YbTiO.MultipleScattering(ei=1.0, threshold=0.1, peak = [0,0,2], xcut=np.array([1,1,1]), ycut = np.array([1,1,-2]))
+#print(' ')
+#YbTiO.MultipleScattering(ei=5, threshold=0.1, peak = [-4,2,2], xcut=np.array([1,-1,0]), ycut = np.array([1,1,-2]))

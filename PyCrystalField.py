@@ -2044,8 +2044,9 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
     cif = CifFile(ciffile)
     if mag_ion == None: #take the first rare earth in the cif file as the central ion
         for asuc in cif.asymunitcell:
-            if asuc[1] in ['Sm','Pm','Nd','Ce','Dy','Ho','Tm','Pr','Er','Tb','Yb']:
+            if asuc[1].strip('3+') in ['Sm','Pm','Nd','Ce','Dy','Ho','Tm','Pr','Er','Tb','Yb']:
                 mag_ion = asuc[0]
+                print('No mag_ion ion listed, assuming', mag_ion, 'is the central ion.')
 
 
     ## Check for multiply defined atoms

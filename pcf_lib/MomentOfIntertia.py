@@ -47,11 +47,6 @@ def ContinuousShapeMeasure(shape1,shape2):
 
 ######
 
-rt2 = np.sqrt(2)
-polyhedron1 = [[-1,-1,0.5],[1,-1,0.5],[-1,1,0.5],[1,1,0.5],
-             [rt2,0.01,-0.53],[-rt2,0,-0.51],[0,rt2,-0.51],[0,-rt2,-0.5]]
-
-
 @njit
 def anglesToVector(theta,phi):
     return np.sin(theta)*np.cos(phi),  np.sin(theta)*np.sin(phi),  np.cos(theta)
@@ -139,9 +134,3 @@ def findZaxis(atoms):
 
 
 
-
-print(findZaxis(rotateArbAxis(polyhedron1, np.pi/2, 0, np.pi/2)))
-
-print(findZaxis(rotateArbAxis(polyhedron1, np.pi/2, 1, np.pi/3)))
-
-print(findZaxis(rotateArbAxis(polyhedron1, 1, 0.4, np.pi/2.5)))

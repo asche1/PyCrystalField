@@ -2,12 +2,14 @@ import pickle
 import numpy as np
 #import time
 #from dataset import DataSet
+import os
+directory = os.path.dirname(os.path.realpath(__file__))+'/'
 
 
 ####################################################################################
 ## Kemp's function
 def isotropic_ff(s,ion):
-    fhd = open('3d_formfactors_j0.pck','rb')
+    fhd = open(directory+'3d_formfactors_j0.pck','rb')
     form_factors_3d = pickle.load(fhd)
     fhd.close()
     
@@ -15,7 +17,7 @@ def isotropic_ff(s,ion):
     
     j0 = coefs[0]*np.exp(-coefs[1]*s**2) + coefs[2]*np.exp(-coefs[3]*s**2)  + coefs[4]*np.exp(-coefs[5]*s**2) +coefs[6]
 
-    fhd = open('3d_formfactors_j2.pck','rb')
+    fhd = open(directory+'3d_formfactors_j2.pck','rb')
     form_factors_3d = pickle.load(fhd)
     fhd.close()
     
@@ -50,7 +52,7 @@ def LandeGFactor(ion):
 def importRE_FF(ion):
     coefs = [[],[]]
     j=0
-    for line in open('RE_formfactors.pck'):
+    for line in open(directory+'RE_formfactors.pck'):
         if not line.startswith(('#', ' ','\n')):
             if line.split(' \t')[0] in ion:
                 coefs[j] = [float(i) for i in line.split(' \t')[1:]]

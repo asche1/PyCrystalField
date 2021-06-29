@@ -505,7 +505,7 @@ class CFLevels:
 
 
 
-    def neutronSpectrum2D(self, Earray, Qarray, Temp, Ei, ResFunc, gamma, DebyeWaller, Ion):
+    def neutronSpectrum2D(self, Earray, Qarray, Temp, Ei, ResFunc, gamma, Ion, DebyeWaller=0):
         intensity1D = self.neutronSpectrum(Earray, Temp, Ei, ResFunc,  gamma)
 
         # Scale by Debye-Waller Factor
@@ -2038,7 +2038,7 @@ from pcf_lib.cif_import import CifFile
 
 def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling = None,
                 crystalImage=False, NumIonNeighbors=1, ForceImaginary=False, 
-                ionL = None, ionS = None, CoordinationNumber = None):
+                ionL = None, ionS = None, CoordinationNumber = None, MaxDistance=None):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
@@ -2047,6 +2047,7 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
             if asuc[1].strip('3+') in ['Sm','Pm','Nd','Ce','Dy','Ho','Tm','Pr','Er','Tb','Yb']:
                 mag_ion = asuc[0]
                 print('No mag_ion ion listed, assuming', mag_ion, 'is the central ion.')
+                break
 
 
     ## Check for multiply defined atoms
@@ -2089,8 +2090,8 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 
         ## Calculate the ligand positions
         centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cf, mag_ion, Zaxis, 
-                                                                    Yaxis, crystalImage, 
-                                                                    NumIonNeighbors,CoordinationNumber)
+                                                                    Yaxis, crystalImage,NumIonNeighbors,
+                                                                    CoordinationNumber, MaxDistance)
         #print(ligandCharge)
         if centralIon in Jion: # It's a rare earth ion
             if LS_Coupling:
@@ -2129,8 +2130,13 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 
     if len(output) == 1:
         return Lig, PCM
-    else: return output
+    else: 
+        print('WARNING: more than one ligand position given...\n  '+
+            ' outputting [[Ligands1, CFLevels1], [Ligands2, CFLevels2], [Ligands3, CFLevels3]]')
+        return output
 
 
 #####################################################################################
 #####################################################################################
+
+

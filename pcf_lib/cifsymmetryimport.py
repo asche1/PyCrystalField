@@ -21,7 +21,7 @@ from pcf_lib.MomentOfIntertia import findZaxis
 
 
 def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = False, 
-						NumIonNeighbors = 3, CoordinationNumber=None):
+						NumIonNeighbors = 3, CoordinationNumber=None, maxDistance = None):
 	# Step 1: identify the ion in the asymmetric unit cell
 	site = []
 	for i,auc in enumerate(self.asymunitcell):
@@ -85,18 +85,25 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 			ZAXIS, YAXIS
 		except UnboundLocalError:
 			try:
-				YAXIS = Mirrors[0]
-				perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-									self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
-				if np.sum(perpvec) == 0:
+				if len(Mirrors) > 0:
+					YAXIS = Mirrors[0]
 					perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-						self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
-				ZAXIS = self.latt.ABC(perpvec)
-				print('   No mirror plane found orthogonal to a rotation axis.\n',
-					'     Found mirror plane at', YAXIS, '\n'
-					'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+										self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
+					if np.sum(perpvec) == 0:
+						perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
+							self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
+					ZAXIS = self.latt.ABC(perpvec)
+					print('   No mirror plane found orthogonal to a rotation axis.\n',
+						'     Found mirror plane at', YAXIS, '\n'
+						'     Using', ZAXIS, 'as the Z axis and', YAXIS, 'as the Y axis.')
+				else:
+					perpvec = np.cross(self.latt.cartesian(ZAXIS), self.latt.cartesian(ZAXIS+np.array([-1,0,0])))
+					if np.sum(perpvec) == 0:
+						perpvec = np.cross(self.latt.cartesian(ZAXIS), self.latt.cartesian(ZAXIS+np.array([0,-1,0])))
+					YAXIS = self.latt.ABC(perpvec)
+					print('    No mirror planes; using', ZAXIS,' as Z axis.')
 
-			except IndexError: # No mirrors and no rotations
+			except (IndexError, UnboundLocalError): # No mirrors and no rotations
 				print('    No mirror planes and no rotations in point group:', PGS)
 				NoMirrorNoRotation = True
 				YAXIS = np.array([0,1.,0])
@@ -169,7 +176,11 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 	# Step 2: sort the list in ascending order
 	sortedNeighborArgs = np.argsort(distlist)
 
-	# If coordination number is specified, only take those ions
+	############# If max distance is specified, use this
+	if maxDistance != None:
+		CoordinationNumber = np.sum(np.array(distlist) < maxDistance)
+
+	########### If coordination number is specified, only take those ions
 	if CoordinationNumber != None:
 		nearestNeighbors = [neighborlist[v] for v in sortedNeighborArgs[1:CoordinationNumber+1]] 
 		NNLigandList = [neighborlist[v][0] for v in sortedNeighborArgs[1:CoordinationNumber+1]] 
@@ -177,6 +188,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 		for i, nnll  in enumerate(list(set(NNLigandList))):
 			numN = [nn[0] for nn in nearestNeighbors].count(nnll)
 			print('   Identified', numN, nnll,'ligands.')
+
 
 	# otherwise, we search through neighbors by common ions.
 	else:
@@ -274,6 +286,8 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 				ligandCharge.append(-2)
 			elif 'S' in nn[0]:
 				ligandCharge.append(-1)
+			elif 'N' in nn[0]:
+				ligandCharge.append(-4)
 			else: 
 				ligandCharge.append(-2)
 	if np.all(['C' in at[0] for at in nearestNeighbors]):

@@ -122,15 +122,22 @@ def findZaxis(atoms):
             print('\tFound a near-3-fold axis...  CSM=', f3)
             return RotA3, yax
         else:
-            RotA2, f2 = findZaxis_SOM_rotation(atoms, np.pi)  ## two-fold rotation
-            if f2 < 1:
-                yax = np.cross(RotA2, atoms[0])
+            RotA5, f5 = findZaxis_SOM_rotation(atoms, np.pi/5*2)  ## five-fold rotation
+            if f5 < 1:
+                yax = np.cross(RotA5, atoms[0])
                 yax /= np.linalg.norm(yax)
-                print('\tFound a near-2-fold axis...  CSM=', f2)
-                return RotA2, yax
+                print('\tFound a near-5-fold axis...  CSM=', f5)
+                return RotA3, yax
             else:
-                print('\tUsing moment of intertia tensor to estimate z axis...')
-                return selectZaxisMI(atoms) ## Select using moment of intertia
+                RotA2, f2 = findZaxis_SOM_rotation(atoms, np.pi)  ## two-fold rotation
+                if f2 < 1:
+                    yax = np.cross(RotA2, atoms[0])
+                    yax /= np.linalg.norm(yax)
+                    print('\tFound a near-2-fold axis...  CSM=', f2)
+                    return RotA2, yax
+                else:
+                    print('\tUsing moment of intertia tensor to estimate z axis...')
+                    return selectZaxisMI(atoms) ## Select using moment of intertia
 
 
 

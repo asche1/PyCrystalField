@@ -1,0 +1,18 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+1390 
+
+HP-11           1 D11h  Hendecagon                                         
+DPY-11          2 C10v  Decagonal pyramid                                  
+EBPY-11         3 D9h   Enneagonal bipyramid                               
+JCPPR-11        4 C5v   Capped pentagonal prism J9                         
+JCPAPR-11       5 C5v   Capped pentagonal antiprism J11                    
+JAPPR-11        6 C2v   Augmented pentagonal prism J52                     
+JASPC-11        7 Cs    Augmented sphenocorona J87                         
+
+Structure [ML11]        HP-11       DPY-11      EBPY-11     JCPPR-11    JCPAPR-11     JAPPR-11     JASPC-11
+ IONLIST        ,      26.933,      25.639,      23.481,      22.713,      23.032,      18.974,      24.921

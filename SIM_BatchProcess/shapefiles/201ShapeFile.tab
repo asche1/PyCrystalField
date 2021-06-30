@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+201 
+
+DP-12           1 D12h  Dodecagon                                          
+HPY-12          2 C11v  Hendecagonal pyramid                               
+DBPY-12         3 D10h  Decagonal bipyramid                                
+HPR-12          4 D6h   Hexagonal prism                                    
+HAPR-12         5 D6d   Hexagonal antiprism                                
+TT-12           6 Td    Truncated tetrahedron                              
+COC-12          7 Oh    Cuboctahedron                                      
+ACOC-12         8 D3h   Anticuboctahedron J27                              
+
+Structure [ML12]        DP-12       HPY-12      DBPY-12       HPR-12      HAPR-12        TT-12       COC-12      ACOC-12
+ IONLIST        ,      31.284,      22.937,      17.591,      17.704,      19.030,      17.522,      16.119,      13.019

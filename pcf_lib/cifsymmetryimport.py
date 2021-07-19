@@ -44,6 +44,96 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 		if np.all(new_at[2:5] == onesite[2:5]):
 			PGS.append(sy)
 
+
+
+	############### Now, find the nearest neighbors
+	# Step 1: make a list of all the nearest neighbor distances and vectors
+	unitcellshifts = np.array([[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
+										[-1,0,0],[0,-1,0],[0,0,-1],
+										[1,1,0], [0,1,1], [1,0,1],
+										[-1,1,0],[0,-1,1],[1,0,-1],
+										[1,-1,0],[0,1,-1],[-1,0,1],
+										[-1,-1,0],[0,-1,-1],[-1,0,-1],
+								[1,1,1],    [1,1,-1],  [1,-1,1], [-1,1,1],
+								[-1,-1,-1], [-1,-1,1], [-1,1,-1],[1,-1,-1]])
+	neighborlist = []
+	distlist = []
+	for ii, at in enumerate(self.unitcell):
+		if at[4] < 0: print('negative atom!',ii, at)
+		#if ion not in at[0]:
+		for ucs in unitcellshifts:
+			distVec0 = self.latt.cartesian(np.array(onesite[2:5]) - (np.array(at[2:5]) + ucs))
+			neighborlist.append([at[1], np.linalg.norm(distVec0), distVec0])
+			distlist.append(np.linalg.norm(distVec0))
+
+	
+	# Step 2: sort the list in ascending order
+	sortedNeighborArgs = np.argsort(distlist)
+
+	############# If max distance is specified, use this
+	if maxDistance != None:
+		CoordinationNumber = np.sum(np.array(distlist) < maxDistance)
+
+	########### If coordination number is specified, only take those ions
+	if CoordinationNumber != None:
+		minindex = np.min(np.where(np.sort(distlist) > 1e-4))
+		nearestNeighbors = [neighborlist[v] for v in sortedNeighborArgs[minindex:CoordinationNumber+minindex]] 
+		NNLigandList = [neighborlist[v][0] for v in sortedNeighborArgs[minindex:CoordinationNumber+minindex]]
+
+		for i, nnll  in enumerate(list(set(NNLigandList))):
+			numN = [nn[0] for nn in nearestNeighbors].count(nnll)
+			print('   Identified', numN, nnll,'ligands.')
+
+
+	# otherwise, we search through neighbors by common ions.
+	else:
+		nearestNeighbors = []
+		### Find the nearest neighbor ligands that are not on the same site
+		jjj, kkk = 0,0
+		NNLigandList = []
+		while len(NNLigandList) < NumIonNeighbors:
+			if neighborlist[sortedNeighborArgs[jjj]][1] > 1e-4:
+				#nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
+				#break
+				try:
+					if neighborlist[sortedNeighborArgs[jjj]][0] == NNLigandList[-1]:
+						pass
+					else:
+						NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
+				except IndexError:  NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
+				# print(neighborlist[sortedNeighborArgs[jjj]][0], NNLigandList)
+			else: 
+				kkk += 1   #for keeping track of where the first ligand is.
+			jjj+=1
+
+
+		for i in range(NumIonNeighbors):
+			print(' Next'*i+' Nearest ligand:', NNLigandList[i])
+		#nearestLigand = NNLigandList[0]
+		addedLigands = []
+		for sna in sortedNeighborArgs[kkk:]:
+			#if neighborlist[sna][0] == nearestLigand:
+			if neighborlist[sna][0] in NNLigandList:
+
+				try:
+					if neighborlist[sna][0] == addedLigands[-1]: 
+						pass
+					else: addedLigands.append(neighborlist[sna][0])
+				except IndexError:
+					addedLigands.append(neighborlist[sna][0])
+				if (len(addedLigands) > NumIonNeighbors): 
+					break
+				nearestNeighbors.append(neighborlist[sna])
+			else: break
+			#if len(nearestNeighbors) >= jjj: break
+
+		for i in range(len(list(set(NNLigandList)))):
+			numN = [nn[0] for nn in nearestNeighbors].count(NNLigandList[i])
+			print('   Identified', numN, NNLigandList[i],'ligands.')
+
+
+	###############
+
 	# print(PGS)
 	# Step 3: make the symmetry operations matrices and find the rotation axes
 	inversion = False  #this is so that PyCrystalField knows whether to include -m terms
@@ -87,8 +177,13 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 			try:
 				if len(Mirrors) > 0:
 					YAXIS = Mirrors[0]
-					perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
-										self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
+					#perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
+					#					self.latt.cartesian(Mirrors[0]+np.array([-1,0,0])))
+					## use CSM measures to try to find the z axis
+					csmZAXIS, csmYAXIS = findZaxis([nn[2] for nn in nearestNeighbors])
+					perpvec = csmZAXIS - YAXIS*np.dot(YAXIS,csmZAXIS)/\
+								(np.linalg.norm(YAXIS)*np.linalg.norm(csmZAXIS))
+
 					if np.sum(perpvec) == 0:
 						perpvec = np.cross(self.latt.cartesian(Mirrors[0]), 
 							self.latt.cartesian(Mirrors[0]+np.array([0,-1,0])))
@@ -152,91 +247,8 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 
 
 
-	############### Now, find the nearest neighbors
-	# Step 1: make a list of all the nearest neighbor distances and vectors
-	unitcellshifts = np.array([[0,0,0], [1,0,0], [0,1,0], [0,0,1], 
-										[-1,0,0],[0,-1,0],[0,0,-1],
-										[1,1,0], [0,1,1], [1,0,1],
-										[-1,1,0],[0,-1,1],[1,0,-1],
-										[1,-1,0],[0,1,-1],[-1,0,1],
-										[-1,-1,0],[0,-1,-1],[-1,0,-1],
-								[1,1,1],    [1,1,-1],  [1,-1,1], [-1,1,1],
-								[-1,-1,-1], [-1,-1,1], [-1,1,-1],[1,-1,-1]])
-	neighborlist = []
-	distlist = []
-	for ii, at in enumerate(self.unitcell):
-		if at[4] < 0: print('negative atom!',ii, at)
-		#if ion not in at[0]:
-		for ucs in unitcellshifts:
-			distVec0 = self.latt.cartesian(np.array(onesite[2:5]) - (np.array(at[2:5]) + ucs))
-			neighborlist.append([at[1], np.linalg.norm(distVec0), distVec0])
-			distlist.append(np.linalg.norm(distVec0))
 
-	
-	# Step 2: sort the list in ascending order
-	sortedNeighborArgs = np.argsort(distlist)
-
-	############# If max distance is specified, use this
-	if maxDistance != None:
-		CoordinationNumber = np.sum(np.array(distlist) < maxDistance)
-
-	########### If coordination number is specified, only take those ions
-	if CoordinationNumber != None:
-		nearestNeighbors = [neighborlist[v] for v in sortedNeighborArgs[1:CoordinationNumber+1]] 
-		NNLigandList = [neighborlist[v][0] for v in sortedNeighborArgs[1:CoordinationNumber+1]] 
-
-		for i, nnll  in enumerate(list(set(NNLigandList))):
-			numN = [nn[0] for nn in nearestNeighbors].count(nnll)
-			print('   Identified', numN, nnll,'ligands.')
-
-
-	# otherwise, we search through neighbors by common ions.
-	else:
-		nearestNeighbors = []
-		### Find the nearest neighbor ligands that are not on the same site
-		jjj, kkk = 0,0
-		NNLigandList = []
-		while len(NNLigandList) < NumIonNeighbors:
-			if neighborlist[sortedNeighborArgs[jjj]][1] > 1e-4:
-				#nearestLigand = neighborlist[sortedNeighborArgs[jjj]][0]
-				#break
-				try:
-					if neighborlist[sortedNeighborArgs[jjj]][0] == NNLigandList[-1]:
-						pass
-					else:
-						NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
-				except IndexError:  NNLigandList.append(neighborlist[sortedNeighborArgs[jjj]][0])
-				# print(neighborlist[sortedNeighborArgs[jjj]][0], NNLigandList)
-			else: 
-				kkk += 1   #for keeping track of where the first ligand is.
-			jjj+=1
-
-
-		for i in range(NumIonNeighbors):
-			print(' Next'*i+' Nearest ligand:', NNLigandList[i])
-		#nearestLigand = NNLigandList[0]
-		addedLigands = []
-		for sna in sortedNeighborArgs[kkk:]:
-			#if neighborlist[sna][0] == nearestLigand:
-			if neighborlist[sna][0] in NNLigandList:
-
-				try:
-					if neighborlist[sna][0] == addedLigands[-1]: 
-						pass
-					else: addedLigands.append(neighborlist[sna][0])
-				except IndexError:
-					addedLigands.append(neighborlist[sna][0])
-				if (len(addedLigands) > NumIonNeighbors): 
-					break
-				nearestNeighbors.append(neighborlist[sna])
-			else: break
-			#if len(nearestNeighbors) >= jjj: break
-
-		for i in range(len(list(set(NNLigandList)))):
-			numN = [nn[0] for nn in nearestNeighbors].count(NNLigandList[i])
-			print('   Identified', numN, NNLigandList[i],'ligands.')
-
-
+	###############
 
 	## Step 2b: if there is no mirrors and no rotations about the central ion,
 		# We use a moment of intertia calculation to identify the z axis

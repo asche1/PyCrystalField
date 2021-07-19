@@ -66,8 +66,15 @@ class CifFile:
 						i+=1
 						jj +=1
 					else:
+						if line.startswith('_'): break
 						site = line.split()#[0:9]
 						modsite = deepcopy(site)
+						if len(modsite) < 3:  # If the line for some reason spills over into the next...
+							i += 1
+							try:
+								line = lines[i]
+							except IndexError: break
+							continue
 						modsite[1] = site[sitetypesymbol]
 						modsite[2] = self._destringify(site[fract_x])
 						modsite[3] = self._destringify(site[fract_y])
@@ -100,7 +107,10 @@ class CifFile:
 				while ('_' in line):  #jump ahead to where the symops are
 					i+=1
 					line = lines[i]
-				while (line != " \r\n" and line != "\r\n" and line != "\n" and line != " \n" and line != 'loop_\n'): #loop until we hit a blank spot
+				while (line != " \r\n" and line != "\r\n" and line != "\n" and line != " \n" 
+						and line != 'loop_\n'): #loop until we hit a blank spot
+					if line.startswith('#'):
+						break
 					if '\'' in line:
 						quoteloc = [ii for ii, ltr in enumerate(line) if ltr == '\'']
 						symops.append(line[quoteloc[0]+1:quoteloc[1]])
@@ -148,7 +158,8 @@ class CifFile:
 		newpos = [0.0, 0.0, 0.0]
 		xpos, ypos, zpos = atom[2], atom[3], atom[4]
 		symstring = symstring.replace(' ','')
-		symstring = symstring.replace("x",str(xpos)).replace('y',str(ypos)).replace('z',str(zpos))
+		symstring = symstring.replace("x",str(xpos)).replace('y',str(ypos)).replace('z',str(zpos)).replace(
+								"X",str(xpos)).replace('Y',str(ypos)).replace('Z',str(zpos))
 		sym = symstring.split(",")
 		newpos[0] = self._defractionify(sym[0])
 		newpos[1] = self._defractionify(sym[1])

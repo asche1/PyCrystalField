@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------------
+S H A P E   v2.1         Continuous Shape Measures calculation
+(c) 2013  Electronic Structure Group, Universitat de Barcelona
+                   Contact:  llunell@ub.edu                   
+--------------------------------------------------------------------------------
+
+35 
+
+DP-10           1 D10h  Decagon                                            
+EPY-10          2 C9v   Enneagonal pyramid                                 
+OBPY-10         3 D8h   Octagonal bipyramid                                
+PPR-10          4 D5h   Pentagonal prism                                   
+PAPR-10         5 D5d   Pentagonal antiprism                               
+JBCCU-10        6 D4h   Bicapped cube J15                                  
+JBCSAPR-10      7 D4d   Bicapped square antiprism J17                      
+JMBIC-10        8 C2v   Metabidiminished icosahedron J62                   
+
+Structure [ML10]        DP-10       EPY-10      OBPY-10       PPR-10      PAPR-10     JBCCU-10   JBCSAPR-10     JMBIC-10
+ IONLIST        ,      33.854,      22.732,      18.310,      12.520,      12.923,      11.157,       3.079,       8.104

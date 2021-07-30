@@ -1,0 +1,30 @@
+#### CEF parameters
+$B_{2}^{0}=$  &  $ 0.58 \pm 0.03$ &  $B_{6}^{0}=$  &  $ -0.21 \pm 0.05$ \\
+$B_{4}^{0}=$  &  $ 1.79 \pm 0.07$ &  $B_{6}^{3}=$  &  $ -0.0184 \pm 0.001$ \\
+$B_{4}^{3}=$  &  $ 1.0 \pm 0.07$ &  $B_{6}^{6}=$  &  $ 0.14 \pm 0.04$ \\
+
+#### G-tensor
+0.0 & 0.0 & 0.0 \\ 
+0.0 & 0.0 & 0.0 \\ 
+-0.05(6) & 0.0 & 5.8(2) \\ 
+
+#### best fit Eigenvalues
+\begin{table*}
+\caption{Eigenvectors and Eigenvalues...}
+\begin{ruledtabular}
+\begin{tabular}{c|cccccccccc}
+E (meV) &$| -\frac{9}{2}\rangle$ & $| -\frac{7}{2}\rangle$ & $| -\frac{5}{2}\rangle$ & $| -\frac{3}{2}\rangle$ & $| -\frac{1}{2}\rangle$ & $| \frac{1}{2}\rangle$ & $| \frac{3}{2}\rangle$ & $| \frac{5}{2}\rangle$ & $| \frac{7}{2}\rangle$ & $| \frac{9}{2}\rangle$ \tabularnewline
+ \hline 
+0.0 & 0.0 & 0.0 & 0.0 & -0.29(3) & 0.0 & 0.0 & 0.04(5) & 0.0 & 0.0 & -0.956(10) \tabularnewline
+0.0 & -0.956(10) & 0.0 & 0.0 & -0.04(5) & 0.0 & 0.0 & -0.29(3) & 0.0 & 0.0 & 0.0 \tabularnewline
+24.04(5) & 0.0 & 0.00(8) & 0.4(2) & 0.0 & 0.0(4) & 0.9(5) & 0.0 & 0.0(2) & -0.13(7) & 0.0 \tabularnewline
+24.04(5) & 0.0 & -0.13(7) & 0.0(2) & 0.0 & -0.9(5) & 0.0(4) & 0.0 & 0.4(2) & 0.00(8) & 0.0 \tabularnewline
+35.89(2) & -0.29(3) & 0.0 & 0.0 & 0.1(2) & 0.0 & 0.0 & 0.95(4) & 0.0 & 0.0 & 0.0 \tabularnewline
+35.89(2) & 0.0 & 0.0 & 0.0 & 0.95(4) & 0.0 & 0.0 & -0.1(2) & 0.0 & 0.0 & -0.29(3) \tabularnewline
+52.32(2) & 0.0 & -0.45(2) & 0.0 & 0.0 & -0.31(5) & 0.0 & 0.0 & -0.84(3) & 0.0 & 0.0 \tabularnewline
+52.32(2) & 0.0 & 0.0 & 0.84(3) & 0.0 & 0.0 & -0.31(5) & 0.0 & 0.0 & 0.45(2) & 0.0 \tabularnewline
+103.624(6) & 0.0 & 0.0 & -0.37(2) & 0.0 & 0.0 & 0.29(7) & 0.0 & 0.0 & 0.885(15) & 0.0 \tabularnewline
+103.624(6) & 0.0 & 0.885(15) & 0.0 & 0.0 & -0.29(7) & 0.0 & 0.0 & -0.37(2) & 0.0 & 0.0 \tabularnewline
+\end{tabular}\end{ruledtabular}
+\label{flo:Eigenvectors}
+\end{table*}

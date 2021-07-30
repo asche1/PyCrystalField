@@ -1,0 +1,37 @@
+# Output from PyCrystalField showing the ligand environment
+
+loop_
+_publ_author_name
+'Someone, A.'
+'Someone, B.'
+_cell_length_a 10.0
+_cell_length_b 10.0
+_cell_length_c 10.0
+_cell_angle_alpha 90.
+_cell_angle_beta 90.
+_cell_angle_gamma 90.
+_cell_volume 1000.0
+_symmetry_space_group_name_H-M 'P 1'
+loop_
+_symmetry_equiv_pos_site_id
+_symmetry_equiv_pos_as_xyz
+1 'x, y, z'
+loop_
+_atom_type_symbol
+Ho3+
+S2-
+loop_
+_atom_site_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Ho3+ 0.5 0.5 0.5 1. 
+S1 0.7008183400420654 0.5 0.3785929666017275 1. 
+S1 0.29893684191037495 0.5021070420645884 0.3781118729304076 1. 
+S1 0.494117893570257 0.2992175489311962 0.3768426682627671 1. 
+S1 0.4994257863751144 0.7036917774690793 0.3801323927323232 1. 
+S1 0.3650950889069663 0.6496101715131017 0.6241094545855692 1. 
+S1 0.6344515927416776 0.3532511785363798 0.62870358924075 1. 
+S1 0.6481127620257521 0.6367388292932685 0.626486962130803 1. 
+S1 0.3505438980266747 0.36402205748896665 0.627427878352834 1. 

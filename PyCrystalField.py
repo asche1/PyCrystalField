@@ -24,7 +24,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-    ' *                PyCrystalField 2.3.0                 *\n' +
+    ' *                PyCrystalField 2.3.1                 *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -195,6 +195,7 @@ class Ligands:
         self.B = []
         OOO = []
         nonzeroB = []
+        bnm_labels = []
 
         if self.suppressmm == False:  nmrange = [[n,m] for n in range(2,8,2) for m in range(-n,n+1)]
         elif self.suppressmm == True:   nmrange = [[n,m] for n in range(2,8,2) for m in range(0,n+1)]
@@ -213,6 +214,7 @@ class Ligands:
             if np.around(B,decimals=7) != 0:
                 OOO.append(StevensOp(ionJ,n,m))
                 nonzeroB.append(B)
+                bnm_labels.append('B_{}^{}'.format(n,m))
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
             self.H += B*StevensOp(ionJ,n,m)
@@ -222,6 +224,7 @@ class Ligands:
         newobj = CFLevels.Hamiltonian(self.H)
         newobj.O = OOO
         newobj.B = nonzeroB
+        newobj.BnmLabels = bnm_labels
         newobj.ion = self.ion
         return newobj
 
@@ -294,6 +297,8 @@ class CFLevels:
             Stev_O.append(  StevensOp(ionJ,n,m)  )
 
         newcls = cls(Stev_O, Parameters)
+        newcls.BnmLabels = Bdict.keys
+        newcls.ion = ion
         return newcls
 
     @classmethod
@@ -1144,6 +1149,8 @@ class LS_Ligands:
 
         H = np.zeros((int(2*self.ionL+1), int(2*self.ionL+1)),dtype = complex)
         self.B = []
+        OOO = []
+        nonzeroB = []
 
         self.H_nocharge = [[]]
         if self.suppressmm == False:  nmrange = [[n,m] for n in range(2,8,2) for m in range(-n,n+1)]
@@ -1161,6 +1168,9 @@ class LS_Ligands:
             # 2)  Compute CEF parameter
             B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegral(ion,n) * LStheta(ion,n)
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
+            if np.around(B,decimals=8) != 0:
+                OOO.append(StevensOp(self.ionL,n,m))
+                nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
             H += B*StevensOp(self.ionL,n,m)
@@ -1174,8 +1184,10 @@ class LS_Ligands:
 
         #self.H = self.H_CEF + self.H_LS
 
-        return LS_CFLevels.Hamiltonian(self.H_CEF, self.H_SOC, self.ionL, self.ionS)
-
+        newobj = LS_CFLevels.Hamiltonian(self.H_CEF, self.H_SOC, self.ionL, self.ionS)
+        newobj.O = OOO
+        newobj.B = nonzeroB
+        return newobj
 
 
     def TMPointChargeModel(self, l=2, symequiv=None, LigandCharge= -2, IonCharge=1,
@@ -1508,11 +1520,19 @@ class LS_CFLevels:
 
 
     def neutronSpectrum(self, Earray, Temp, Ei, ResFunc, gamma = 0):
+        try:
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+        except AttributeError:
+            self.diagonalize()
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+
         maxtransition = 12 # because we can't see the others
 
         # make angular momentum ket object
         eigenkets = [Ket(ei) for ei in self.eigenvectors[:maxtransition]]
-        intensity = np.zeros(len(Earray))
+
 
         # for population factor weights
         beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
@@ -2089,10 +2109,10 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
     for cf in cifs:
 
         ## Calculate the ligand positions
-        centralIon, ligandPositions, ligandCharge, inv = FindPointGroupSymOps(cf, mag_ion, Zaxis, 
+        centralIon, ligandPositions, ligandCharge, inv, ligandNames = FindPointGroupSymOps(cf, mag_ion, Zaxis, 
                                                                     Yaxis, crystalImage,NumIonNeighbors,
                                                                     CoordinationNumber, MaxDistance)
-        #print(ligandCharge)
+        #print(ligandNames)
         if centralIon in Jion: # It's a rare earth ion
             if LS_Coupling:
                 Lig = LS_Ligands(ion=centralIon, ionPos = [0,0,0], ligandPos = ligandPositions, 
@@ -2126,6 +2146,7 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
             else:
                 PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
 
+        Lig.LigandNames = ligandNames
         output.append([Lig, PCM])
 
     if len(output) == 1:

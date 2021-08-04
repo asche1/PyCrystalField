@@ -282,10 +282,11 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 
 
 
-
+	ligandNames = []
 	ligandPositions = []
 	ligandCharge = []
 	for nn in nearestNeighbors:
+		ligandNames.append(nn[0])
 		ligandPositions.append([np.dot(nn[2], cartXAXIS), 
 								np.dot(nn[2], cartYAXIS), 
 								np.dot(nn[2], cartZAXIS)])
@@ -330,7 +331,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 		print('     \033[43m WARNING: there is no mirror symmetry along the Y axis, so \n'+
 			'\033[0m     \033[43m   we must inlcude the -m terms, and the eigenkets will be complex.\033[0m\n')
 
-	return centralIon, ligandPositions, ligandCharge, inversion
+	return centralIon, ligandPositions, ligandCharge, inversion, ligandNames
 
 
 

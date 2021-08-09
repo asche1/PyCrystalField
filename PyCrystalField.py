@@ -1169,7 +1169,7 @@ class LS_Ligands:
             B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegral(ion,n) * LStheta(ion,n)
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
             if np.around(B,decimals=8) != 0:
-                OOO.append(StevensOp(self.ionL,n,m))
+                OOO.append(LS_StevensOp(self.ionL,self.ionS,n,m))
                 nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
@@ -1251,7 +1251,7 @@ class LS_Ligands:
             B = -gamma * ahc* a0**n * Constant(n,m) * RadialIntegral_TM(self.ion, n) * TM_LStheta[n]
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
             if np.around(B,decimals=8) != 0:
-                OOO.append(StevensOp(self.ionL,n,m))
+                OOO.append(LS_StevensOp(self.ionL,self.ionS,n,m))
                 nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
@@ -1331,7 +1331,7 @@ class LS_Ligands:
             B = -gamma * ahc* a0**n * Constant(n,m) * radialintegrals[n] * TM_LStheta[n]
             if printB ==True: print('B_'+str(n),m,' = ',np.around(B,decimals=8))
             if np.around(B,decimals=8) != 0:
-                OOO.append(StevensOp(self.ionL,n,m))
+                OOO.append(LS_StevensOp(self.ionL,self.ionS,n,m))
                 nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)

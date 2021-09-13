@@ -328,7 +328,7 @@ class CFLevels:
             bands = self._findbands(Hamiltonian)
             diagonalH = LA.eig_banded(bands, lower=True)
 
-        #self.eigenvaluesNoNorm = diagonalH[0]
+        self.eigenvaluesNoNorm = diagonalH[0]
         self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
         self.eigenvectors = diagonalH[1].T
         # set very small values to zero
@@ -347,7 +347,7 @@ class CFLevels:
         bands = self._findbands(Hamiltonian)
         diagonalH = LA.eig_banded(bands, lower=True)
 
-        #self.eigenvaluesNoNorm = diagonalH[0]
+        self.eigenvaluesNoNorm = diagonalH[0]
         self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
         self.eigenvectors = diagonalH[1].T
         # set very small values to zero
@@ -1495,7 +1495,7 @@ class LS_CFLevels:
         bands = self._findbands(CEF_Hamiltonian + self.H_SOC.O)
         diagonalH = LA.eig_banded(bands, lower=True)
 
-        #self.eigenvaluesNoNorm = diagonalH[0]
+        self.eigenvaluesNoNorm = diagonalH[0]
         self.eigenvalues = diagonalH[0] - np.amin(diagonalH[0])
         self.eigenvectors = diagonalH[1].T
         # set very small values to zero
@@ -2036,12 +2036,15 @@ LambdaConstants[6][4] = np.sqrt(14)*3/16
 LambdaConstants[6][5] = np.sqrt(77)*3/8
 LambdaConstants[6][6] = np.sqrt(231)/16
 
-def WybourneToStevens(ion, Bdict):
+def WybourneToStevens(ion, Bdict, LS=False):
     StevDict = {}
     for Anm in Bdict:
         n = int(Anm[1])
         m = int(Anm[2:])
-        StevDict['B'+Anm[1:]] = LambdaConstants[n][m]*theta(ion,n)*Bdict[Anm]
+        if LS:
+            StevDict['B'+Anm[1:]] = LambdaConstants[n][m]*LStheta(ion,n)*Bdict[Anm]
+        else:
+            StevDict['B'+Anm[1:]] = LambdaConstants[n][m]*theta(ion,n)*Bdict[Anm]
     return StevDict
 
 

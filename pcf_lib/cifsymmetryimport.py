@@ -63,9 +63,12 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 		#if ion not in at[0]:
 		for ucs in unitcellshifts:
 			distVec0 = self.latt.cartesian(np.array(onesite[2:5]) - (np.array(at[2:5]) + ucs))
-			neighborlist.append([at[1], np.linalg.norm(distVec0), distVec0])
-			distlist.append(np.linalg.norm(distVec0))
-
+			## Get rid of any ions which are closer than 0.4 \AA. This is unphysical.
+			if np.linalg.norm(distVec0) > 0.4: 
+				neighborlist.append([at[1], np.linalg.norm(distVec0), distVec0])
+				distlist.append(np.linalg.norm(distVec0))
+			else: 
+				print('    AAAH! There is a super-close atom. Removing it...')
 	
 	# Step 2: sort the list in ascending order
 	sortedNeighborArgs = np.argsort(distlist)

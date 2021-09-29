@@ -90,7 +90,7 @@ def findZaxis_SOM_rotation(atoms, angle):
     ## Select starting parameters
     startX0s = []
     startFF = []
-    for i in range(150):
+    for i in range(900):
         x,y,z = np.random.uniform(-1,1,size=3)
         norm = np.sqrt((x**2 + y**2 + z**2))
         if norm <= 1:
@@ -109,6 +109,7 @@ def findZaxis(atoms):
     or two-fold rotation axis. If none can be found, use a moment of intertia
     tensor.'''
     RotA4, f4 = findZaxis_SOM_rotation(atoms, np.pi/2)  ## four-fold rotation
+    # print('############ FOUR FOLD ROTATION CSM =',f4,'\n')
     if f4 < 1:
         yax = np.cross(RotA4, atoms[0])
         yax /= np.linalg.norm(yax)

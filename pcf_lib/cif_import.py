@@ -42,10 +42,12 @@ class CifFile:
 
 			# Find the atoms within the unit cell
 			#elif (line.startswith("loop_") and lines[i+1].startswith(" _atom_site_label")):
-			elif (line.startswith("loop_") and (lines[i+1].strip().startswith("_atom_site_label"))):
+			elif (line.startswith("loop_") and ((lines[i+1].strip().startswith("_atom_site_label")) or 
+				lines[i+1].strip().startswith("_atom_site_type"))):
 				print("Importing atoms")
 				i+=1
 				line = lines[i]
+				
 				jj = 0   # index for keeping track of labels
 				while (line != " \r\n" and line != "\r\n" and line !='\n' 
 						and line !=' \n' and line !='loop_\n' and not line.startswith('#')): #loop until we hit a blank spot
@@ -63,6 +65,8 @@ class CifFile:
 							sitesymorder = jj
 						elif 'site_type_symbol' in line:
 							sitetypesymbol = jj
+						elif 'site_label' in line:
+							sitelabel = jj
 						i+=1
 						jj +=1
 					else:
@@ -75,6 +79,7 @@ class CifFile:
 								line = lines[i]
 							except IndexError: break
 							continue
+						modsite[0] = site[sitelabel]
 						modsite[1] = site[sitetypesymbol]
 						modsite[2] = self._destringify(site[fract_x])
 						modsite[3] = self._destringify(site[fract_y])
@@ -147,7 +152,6 @@ class CifFile:
 		self.latt = lattice(a,b,c,aa,bb,cc)
 
 		print(".cif import complete.")
-
 
 
 

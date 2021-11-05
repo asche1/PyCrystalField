@@ -18,8 +18,14 @@ class lattice:
 		self.b=np.around(self.b,decimals=8)
 		self.c=np.around(self.c,decimals=8)
 
+		#print(self.a, self.b, self.c)
+		#print(np.arccos(np.dot(self.b, self.c)/self.bnorm/self.cnorm)*180/np.pi)
+		#print(np.arccos(np.dot(self.a, self.c)/self.anorm/self.cnorm)*180/np.pi)
+		#print(np.arccos(np.dot(self.a, self.b)/self.anorm/self.bnorm)*180/np.pi)
+
 		#Define the reciprocal lattice
 		self.reciplatt()
+
 
 	def reciplatt(self):
 		"""output the reciprocal lattice in np vectors"""

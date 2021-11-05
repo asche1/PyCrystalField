@@ -150,6 +150,7 @@ class CifFile:
 
 		# Define unit cell using lattice class
 		self.latt = lattice(a,b,c,aa,bb,cc)
+		#print(a,b,c,aa,bb,cc)
 
 		print(".cif import complete.")
 

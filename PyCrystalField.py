@@ -204,7 +204,8 @@ class Ligands:
             # 1)  Compute gamma
             gamma = 0
             for i in range(len(self.bonds)):
-                gamma += 4*np.pi/(2*n+1)*charge[i] *\
+                #print(np.squeeze(charge[i]))
+                gamma += 4*np.pi/(2*n+1)*np.squeeze(charge[i]) *\
                             TessHarm(n,m, self.bonds[i][0], self.bonds[i][1], self.bonds[i][2])/\
                             (self.bondlen[i]**(n+1))
 
@@ -246,16 +247,24 @@ class Ligands:
         #p_best = optimize.minimize(fun, p0, method='Nelder-Mead')
         ###############################################################
 
-        initialChisq, finalChisq = fun(p0), fun(p_best.x)
+        try:
+            initialChisq, finalChisq = fun(p0), fun(p_best.x)
+            finalvals = resfunc(p_best.x)
+        except IndexError:
+            initialChisq, finalChisq = fun(p0), fun([float(p_best.x)])
+            finalvals = resfunc([float(p_best.x)])
 
         # split back into values
-        finalvals = resfunc(p_best.x)
         finalCharges = finalvals['LigandCharge']
 
         # Print results
         print("\n#*********************************")
         print("# Final Stevens Operator Values")
-        newH = self.PointChargeModel(kwargs['symequiv'], finalCharges, printB=True)
+        try:
+            newH = self.PointChargeModel(kwargs['symequiv'], finalCharges, printB=True)
+        except KeyError:
+            print(float(p_best.x))
+            newH = self.PointChargeModel(LigandCharge=[float(p_best.x)], printB=True)
         newH.diagonalize()
         print("\nFinal Charges: ", finalCharges)
         print('Final EigenValues: ', np.around(np.sort(newH.eigenvalues.real),3))
@@ -293,7 +302,7 @@ class CFLevels:
         for Bnm in Bdict:
             Parameters.append(Bdict[Bnm])
             n = int(Bnm[1])
-            m = int(Bnm[2:])
+            m = int(Bnm[2:])    
             Stev_O.append(  StevensOp(ionJ,n,m)  )
 
         newcls = cls(Stev_O, Parameters)
@@ -2047,6 +2056,17 @@ def WybourneToStevens(ion, Bdict, LS=False):
             StevDict['B'+Anm[1:]] = LambdaConstants[n][m]*theta(ion,n)*Bdict[Anm]
     return StevDict
 
+
+def StevensToWybourne(ion, Bdict, LS=False):
+    WybDict = {}
+    for Anm in Bdict:
+        n = int(Anm[1])
+        m = int(Anm[2:])
+        if LS:
+            WybDict['B'+Anm[1:]] = Bdict[Anm]/(LambdaConstants[n][m]*LStheta(ion,n))
+        else:
+            WybDict['B'+Anm[1:]] = Bdict[Anm]/(LambdaConstants[n][m]*theta(ion,n))
+    return WybDict
 
 
 #####################################################################################

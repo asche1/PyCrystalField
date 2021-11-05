@@ -302,12 +302,20 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 				ligandCharge.append(-2)
 			elif 'S' in nn[0]:
 				ligandCharge.append(-1)
+			elif 'H' in nn[0]:
+				ligandCharge.append(-1)
 			elif 'N' in nn[0]:
 				ligandCharge.append(-4)
 			else: 
 				ligandCharge.append(-2)
+	
+	fraccarbon = np.sum(['C' in at[0] for at in nearestNeighbors])/len(nearestNeighbors)
+
 	if np.all(['C' in at[0] for at in nearestNeighbors]):
 		print('Carbon in all:', nearestNeighbors)
+		ligandCharge = np.array(ligandCharge)/3
+	elif fraccarbon > 0.5:
+		print('Carbon in most:', fraccarbon)
 		ligandCharge = np.array(ligandCharge)/3
 	elif np.all(['N' in at[0] for at in nearestNeighbors]):
 		ligandCharge = np.array(ligandCharge)*2

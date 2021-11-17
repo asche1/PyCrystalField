@@ -158,6 +158,7 @@ class Ligands:
         except AttributeError:
             self.suppressmm = suppressminusm
 
+
         if symequiv == None:
             # charge = IonCharge*[LigandCharge]*len(self.bonds)
             try:
@@ -174,7 +175,6 @@ class Ligands:
                 #charge[i] = IonCharge*LigandCharge[se]
                 charge[i] = LigandCharge[se]
 
-        
         
         ion=self.ion
         if ionL == None:
@@ -1892,12 +1892,10 @@ class LS_CFLevels:
         jyg00 = np.dot(vv1,np.dot(Jyg0,np.conj(vv1)))
 
 
-
         jz01 = np.dot(vv1,np.dot(Jz,np.conj(vv2)))
         jz10 = np.dot(vv2,np.dot(Jz,np.conj(vv1)))
         jz00 = np.dot(vv1,np.dot(Jz,np.conj(vv1)))
         jz11 = np.dot(vv2,np.dot(Jz,np.conj(vv2)))
-        
         
         jx01 = np.dot(vv1,np.dot(Jx,np.conj(vv2)))
         jx10 = np.dot(vv2,np.dot(Jx,np.conj(vv1)))
@@ -1910,20 +1908,20 @@ class LS_CFLevels:
         jy11 = np.dot(vv2,np.dot(Jy,np.conj(vv2)))
         
 
-        JXmatrix = np.array([[jx00,jy00,jz00],[jx01,jy01,jz01],[jx10,jy10,jz10]])
-        #zmartix=[gzx,gzy,gzz],
-        zmatrix=np.matmul(np.array([jzg00,jzg01,jzg10]),np.linalg.inv(np.transpose(JXmatrix)))
-        #xmartix=[gyx,gyy,gyz]
-        xmatrix=np.matmul(np.array([jxg00,jxg01,jxg10]),np.linalg.inv(np.transpose(JXmatrix)))
-        #ymartix=[gxx,gxy,gxz]
-        ymatrix=np.matmul(np.array([jyg00,jyg01,jyg10]),np.linalg.inv(np.transpose(JXmatrix)))
+        # JXmatrix = np.array([[jx00,jy00,jz00],[jx01,jy01,jz01],[jx10,jy10,jz10]])
+        # print(JXmatrix)
+        # #zmartix=[gzx,gzy,gzz],
+        # zmatrix=np.matmul(np.array([jzg00,jzg01,jzg10]),np.linalg.inv(np.transpose(JXmatrix)))
+        # #xmartix=[gyx,gyy,gyz]
+        # xmatrix=np.matmul(np.array([jxg00,jxg01,jxg10]),np.linalg.inv(np.transpose(JXmatrix)))
+        # #ymartix=[gxx,gxy,gxz]
+        # ymatrix=np.matmul(np.array([jyg00,jyg01,jyg10]),np.linalg.inv(np.transpose(JXmatrix)))
         
-        gg = np.array([xmatrix,ymatrix,zmatrix])
+        # gg = np.array([xmatrix,ymatrix,zmatrix])
 
-        #gg = 2*np.array([[np.abs(np.real(jx01)), np.imag(jx01), jx00],
-        #                 [np.real(jy01), np.imag(jy01), jy00],
-        #                 [np.real(jz01), np.imag(jz01), np.abs(jz00)]])
-
+        gg = 2*np.array([[np.abs(np.real(jxg01)), np.imag(jxg01), jxg00],
+                        [np.real(jyg01), np.imag(jyg01), jyg00],
+                        [np.real(jzg01), np.imag(jzg01), np.abs(jzg00)]])
         return gg
 
     # def gtensor(self, spinorbitcoupling, halffilled=True):
@@ -1988,20 +1986,25 @@ class LS_CFLevels:
 
     def printLaTexEigenvectors(self):
         '''prints eigenvectors and eigenvalues in the output that Latex can read'''
+        try:
+            eigenkets = self.eigenvectors.real
+        except AttributeError:
+            self.diagonalize()
+
         # Define S array
         if (self.S*2) %2 ==0:
             Sarray = [str(int(kk)) for kk in 
                                     np.arange(-self.S,self.S+1)]
         else:
             Sarray = ['-\\frac{'+str(abs(kk))+'}{2}' if kk <0
-                            else '$\\frac{'+str(abs(kk))+'}{2}'
-                            for kk in np.arange(-self.S*2,self.S*2+2,2)]
+                            else '\\frac{'+str(abs(kk))+'}{2}'
+                            for kk in np.arange(-int(self.S*2), int(self.S*2+2), 2)]
 
         # Define L array
         Larray = [str(int(kk)) for kk in  np.arange(-self.L,self.L+1)]
 
         # Define Ket names
-        KetNames = ['$|$'+LL+','+SS+'$\\rangle$' for LL in Larray  for SS in Sarray]
+        KetNames = ['$|'+LL+','+SS+'\\rangle$' for LL in Larray  for SS in Sarray]
 
         # Print everything out
         print('\\begin{table*}\n\\begin{landscape}\n\\centering\n'+

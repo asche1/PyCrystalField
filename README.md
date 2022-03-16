@@ -11,6 +11,10 @@ Please cite  Scheie, A. "PyCrystalField: Software for Calculation, Analysis, and
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (March 16, 2022) to version 2.3.2
+
+Fixed error in neutrion spectrum calculations for the LS_CFLevels class.
+
 ### Update (May 25, 2021) to version 2.3
 
 Added ability of importCIF to handle "near-symmetries". If no rotation or mirror symmetries are found, it will search for near-rotation symmetries with continuous shape measures (CSM) in order to define the quantization (Z) axis. If no close symmetries are found, it calculates the moment of intertia tensor of the ligands and uses the principal axes to define the Z axis.

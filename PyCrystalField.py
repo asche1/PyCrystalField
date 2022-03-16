@@ -24,7 +24,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-    ' *                PyCrystalField 2.3.1                 *\n' +
+    ' *                PyCrystalField 2.3.2                 *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -378,6 +378,18 @@ class CFLevels:
         return diags[:nonzerobands+1]
 
 
+
+
+    def transitionIntensity(self, ii, jj, Temp):
+        # for population factor weights
+        beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
+        Z = sum([np.exp(-beta*en) for en in self.eigenvalues])
+        # compute population factor
+        pn = np.exp(-beta *self.eigenvalues[ii])/Z
+        
+        # compute amplitude
+        mJn = self.opttran.transition(self.eigenvectors.real[ii] ,  self.eigenvectors.real[jj])
+        return pn*mJn
 
 
     def neutronSpectrum(self, Earray, Temp, Ei, ResFunc, gamma = 0):
@@ -1578,12 +1590,21 @@ class LS_CFLevels:
 
     def _transition(self,ket1,ket2):
         """Computes \sum_a |<|J_a|>|^2 = \sum_a |<|L_a + S_a|>|^2"""
-        ax = np.dot(np.conjugate(ket1.ket),np.dot(self.Jx.O,ket2.ket)) *\
-                np.dot(np.conjugate(ket2.ket),np.dot(self.Jx.O,ket1.ket))
-        ay = np.dot(np.conjugate(ket1.ket),np.dot(self.Jy.O,ket2.ket)) *\
-                np.dot(np.conjugate(ket2.ket),np.dot(self.Jy.O,ket1.ket))
-        az = np.dot(np.conjugate(ket1.ket),np.dot(self.Jz.O,ket2.ket)) *\
-                np.dot(np.conjugate(ket2.ket),np.dot(self.Jz.O,ket1.ket))
+        # ax = np.dot(np.conjugate(ket1.ket),np.dot(self.Jx.O,ket2.ket)) *\
+        #         np.dot(np.conjugate(ket2.ket),np.dot(self.Jx.O,ket1.ket))
+        # ay = np.dot(np.conjugate(ket1.ket),np.dot(self.Jy.O,ket2.ket)) *\
+        #         np.dot(np.conjugate(ket2.ket),np.dot(self.Jy.O,ket1.ket))
+        # az = np.dot(np.conjugate(ket1.ket),np.dot(self.Jz.O,ket2.ket)) *\
+        #         np.dot(np.conjugate(ket2.ket),np.dot(self.Jz.O,ket1.ket))
+
+        """Computes \sum_a |<|J_a|>|^2 = \sum_a |<|L_a + S_a|>|^2, including the 
+        appropriate g factor."""
+        ax = np.dot(np.conjugate(ket1.ket),np.dot(self.Jxg0.O,ket2.ket)) *\
+                np.dot(np.conjugate(ket2.ket),np.dot(self.Jxg0.O,ket1.ket))
+        ay = np.dot(np.conjugate(ket1.ket),np.dot(self.Jyg0.O,ket2.ket)) *\
+                np.dot(np.conjugate(ket2.ket),np.dot(self.Jyg0.O,ket1.ket))
+        az = np.dot(np.conjugate(ket1.ket),np.dot(self.Jzg0.O,ket2.ket)) *\
+                np.dot(np.conjugate(ket2.ket),np.dot(self.Jzg0.O,ket1.ket))
 
         # eliminate tiny values
         ax, ay, az = np.around(ax, 10), np.around(ay, 10), np.around(az, 10)
@@ -2186,4 +2207,20 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 #####################################################################################
 #####################################################################################
 
+## Heat capacity from Victor
+# def partition_func(Eis,T):
+#     # partition function
+#     k_b = 8.6173303E-5 # in eV.K-1
+#     return np.sum(np.exp(-Eis/(k_b*T)))
 
+# def Cp_from_CEF(Eis,T):
+#     Eis *= 10**-3 # convertion to eV
+#     def Cp1T(t):
+#         R = 8.31432
+#         k_b = 8.6173303E-5# in eV.K-1
+#         beta = k_b * t
+#         Z = partition_func(Eis, t)
+#         fs = np.sum( (Eis/beta)**2 * np.exp(-Eis/beta) )
+#         ss = np.sum( (Eis/beta)*np.exp(-Eis/beta) )
+#         return ((R/Z) * (fs - ss**2/Z))
+#     return np.array(list(map(Cp1T, T)))

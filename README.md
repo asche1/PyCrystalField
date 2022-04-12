@@ -65,3 +65,4 @@ From the Hamiltonian, PyCrystalField can then calculate:
 PyCrystalField can also fit the crystal field Hamiltonian to data. The user can define an arbitrary ChiSquared function based on any observables (neutron data, susceptibility, magnetization, or eigenvalues) and PyCrystalField will minimize the ChiSquared function by varying a defined set of CEF parameters. Alternatively, PyCrystalField can fit effective charges of a point charge model.
 
 All calculations can be carried out in the strong spin-orbit coupling regime (usling effective J states), the intermediate spin-orbit coupling regime (treating spin orbit interactions non-perturbatively in the L and S basis), or the weak spin-orbit coupling regime (dealing with effective l states).
+

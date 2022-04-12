@@ -1,0 +1,24 @@
+# from https://pubs.acs.org/doi/abs/10.1021/acs.jpca.8b09218
+# with Fe3+, Mn2+, and Ru3+ values filled in from https://arxiv.org/pdf/cond-mat/0505214.pdf
+# ion, Spin orbit coupling constant, in units of cm^-1
+Cu2+,-829
+Ni2+,-643
+Ni3+,-749
+Co2+,-527
+Co3+,-619
+Fe2+,-401
+Fe3+,476
+Mn2+,322
+Mn3+,358
+Mn4+,405
+Cr2+,234
+Cr3+,276
+V2+, 168
+V3+, 201
+Ti3+,154
+Nb3+,677
+Tc4+,1150
+Ru3+,1177
+Rh3+,-1360 
+Pd2+,-1293
+Pd3+,-1211

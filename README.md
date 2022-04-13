@@ -9,9 +9,8 @@ Please cite  Scheie, A. "PyCrystalField: Software for Calculation, Analysis, and
 
 For a method of determining uncertainty for crystal field fits, see Scheie, A. "Quantifying uncertainties in crystal electric field Hamiltonian fits to neutron data", SciPost Physics Core, 5(1), 018. (2022). https://doi.org/10.21468/SciPostPhysCore.5.1.018
 
-#### Quick Installation
 
-To download and use PyCrystalField, run the following command in a prompt/terminal window:
+#### To download and use PyCrystalField, run the following command in a prompt/terminal window:
 ```
 pip install git+https://github.com/asche1/PyCrystalField.git@for_PyPi
 ```

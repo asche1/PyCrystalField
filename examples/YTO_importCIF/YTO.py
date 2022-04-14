@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import pycrystalfield as cef
+import PyCrystalField as cef
 
 ########### Import CIF file
 
 YTOLig, Yb = cef.importCIF('yto.cif','Yb1')
+Yb.diagonalize()
 
 ########### print eigenvectors
 

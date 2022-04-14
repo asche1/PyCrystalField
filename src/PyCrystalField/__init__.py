@@ -1,1 +1,1 @@
-from pycrystalfield.PyCrystalField import *
+from PyCrystalField.PyCrystalField import *

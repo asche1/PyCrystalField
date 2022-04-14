@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import PyCrystalField as cef
+import pycrystalfield as cef
 
 ########### Import CIF file
 

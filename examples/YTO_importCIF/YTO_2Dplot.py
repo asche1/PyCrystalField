@@ -5,7 +5,7 @@ import pycrystalfield as cef
 
 ########### Import CIF file
 
-YTOLig, Yb = cef.importCIF('yto.cif','Yb1')
+YTOLig, Yb = cef.importCIF('yto.cif')
 
 ########### print eigenvectors
 
@@ -15,8 +15,9 @@ Yb.printEigenvectors()
 ########### plot neutron spectrum
 
 hw = np.linspace(0,100,200)
-intens = Yb.neutronSpectrum(hw, Temp=20, Ei=120, ResFunc= lambda x: 4, gamma = 1)
+QQ = np.linspace(1,6,50)
+intens = Yb.neutronSpectrum2D(hw, QQ, Temp=20, Ei=120, ResFunc= lambda x: 4, gamma = 1, Ion = 'Yb3+')
 
 plt.figure()
-plt.plot(hw, intens)
+plt.pcolormesh( QQ, hw, intens)
 plt.show()

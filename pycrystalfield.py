@@ -610,6 +610,10 @@ class CFLevels:
         print('\t\t'+'-------'*(len(self.eigenvalues)+1) + '\n')
 
     def printLaTexEigenvectors(self, precision = 4):
+        try:
+            eigenkets = self.eigenvectors.real
+        except AttributeError:
+            self.diagonalize()
         '''prints eigenvectors and eigenvalues in the output that Latex can read'''
         print('\\begin{table*}\n\\caption{Eigenvectors and Eigenvalues...}')
         print('\\begin{ruledtabular}')

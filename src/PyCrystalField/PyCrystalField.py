@@ -28,7 +28,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-    ' *                PyCrystalField 2.3.4                 *\n' +
+     ' *                PyCrystalField 2.3.5                 *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +

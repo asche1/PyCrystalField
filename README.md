@@ -12,7 +12,7 @@ For a method of determining uncertainty for crystal field fits, see Scheie, A. "
 
 #### To download and use PyCrystalField, run the following command in a prompt/terminal window:
 ```
-pip install git+https://github.com/asche1/PyCrystalField.git@for_PyPi
+pip install git+https://github.com/asche1/PyCrystalField.git@master
 ```
 PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrystalField requires scipy, matplotlib, and numba to be installed.
 

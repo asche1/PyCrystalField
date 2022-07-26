@@ -1,0 +1,4 @@
+To download and use PyCrystalField, run the following command in a prompt/terminal window:
+
+pip install git+https://github.com/asche1/PyCrystalField.git@master
+

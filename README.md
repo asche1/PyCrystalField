@@ -18,6 +18,10 @@ PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrys
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (January 26, 2023) to version 2.3.6
+
+Fixed roundoff error issue in point charge calculations.
+
 ### Update (March 16, 2022) to version 2.3.2
 
 Fixed error in neutrion spectrum calculations for the LS_CFLevels class.

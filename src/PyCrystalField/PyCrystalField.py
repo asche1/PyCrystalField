@@ -28,7 +28,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-     ' *                PyCrystalField 2.3.5                 *\n' +
+     ' *                PyCrystalField 2.3.6                 *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -222,7 +222,8 @@ class Ligands:
                 bnm_labels.append('B_{}^{}'.format(n,m))
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
-            self.H += B*StevensOp(ionJ,n,m)
+            if np.around(B,decimals=9) != 0:
+                self.H += B*StevensOp(ionJ,n,m)
             self.B.append(B)
         self.B = np.array(self.B)
 
@@ -1203,7 +1204,8 @@ class LS_Ligands:
                 nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
-            H += B*StevensOp(self.ionL,n,m)
+            if np.around(B,decimals=9) != 0:
+                self.H += B*StevensOp(ionJ,n,m)
             self.B.append(B)
         self.B = np.array(self.B)
 
@@ -1285,7 +1287,8 @@ class LS_Ligands:
                 nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
-            H += B*StevensOp(self.ionL,n,m)
+            if np.around(B,decimals=9) != 0:
+                self.H += B*StevensOp(ionJ,n,m)
             self.B.append(B)
         self.B = np.array(self.B)
 
@@ -1365,7 +1368,8 @@ class LS_Ligands:
                 nonzeroB.append(B)
             #print cef.StevensOp(ionJ,n,m)
             #self.H += np.around(B,decimals=15)*StevensOp(ionJ,n,m)
-            H += B*StevensOp(self.ionL,n,m)
+            if np.around(B,decimals=9) != 0:
+                self.H += B*StevensOp(ionJ,n,m)
             self.B.append(B)
         self.B = np.array(self.B)
 

@@ -28,7 +28,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-     ' *                PyCrystalField 2.3.7                 *\n' +
+     ' *                PyCrystalField 2.3.8                 *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -2187,7 +2187,7 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 
         else: # It's not a rare earth!
             if (ionL == None) | (ionS == None):
-                raise TypeError('\tplease specify the ionL and ionS values in the importCIF function')
+                raise TypeError('\tplease specify the ionL and ionS values in the importCIF function for '+ centralIon)
 
             if LS_Coupling: # User-provided SOC
                 Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
@@ -2217,20 +2217,20 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 #####################################################################################
 #####################################################################################
 
-## Heat capacity from Victor
-# def partition_func(Eis,T):
-#     # partition function
-#     k_b = 8.6173303E-5 # in eV.K-1
-#     return np.sum(np.exp(-Eis/(k_b*T)))
+# Heat capacity from Victor Porée
+def partition_func(Eis,T):
+    # partition function
+    k_b = 8.6173303E-5 # in eV.K-1
+    return np.sum(np.exp(-Eis/(k_b*T)))
 
-# def Cp_from_CEF(Eis,T):
-#     Eis *= 10**-3 # convertion to eV
-#     def Cp1T(t):
-#         R = 8.31432
-#         k_b = 8.6173303E-5# in eV.K-1
-#         beta = k_b * t
-#         Z = partition_func(Eis, t)
-#         fs = np.sum( (Eis/beta)**2 * np.exp(-Eis/beta) )
-#         ss = np.sum( (Eis/beta)*np.exp(-Eis/beta) )
-#         return ((R/Z) * (fs - ss**2/Z))
-#     return np.array(list(map(Cp1T, T)))
+def Cp_from_CEF(Eis,T):
+    Eis *= 10**-3 # convertion to eV
+    def Cp1T(t):
+        R = 8.31432  # in J/K per mol
+        k_b = 8.6173303E-5# in eV.K-1
+        beta = k_b * t
+        Z = partition_func(Eis, t)
+        fs = np.sum( (Eis/beta)**2 * np.exp(-Eis/beta) )
+        ss = np.sum( (Eis/beta)*np.exp(-Eis/beta) )
+        return ((R/Z) * (fs - ss**2/Z))
+    return np.array(list(map(Cp1T, T)))

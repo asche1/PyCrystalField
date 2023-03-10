@@ -18,6 +18,11 @@ PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrys
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+
+### Update (March 10, 2023) to version 2.3.6
+
+Fixed bug in importCIF function, can now handle some non-standard CIF files.
+
 ### Update (January 26, 2023) to version 2.3.6
 
 Fixed roundoff error issue in point charge calculations.

@@ -26,6 +26,12 @@ def isotropic_ff(s,ion):
     j2 = s**2*(coefs[0]*np.exp(-coefs[1]*s**2) + coefs[2]*np.exp(-coefs[3]*s**2)  + coefs[4]*np.exp(-coefs[5]*s**2) +coefs[6])
 
     return [j0,j2] 
+
+
+##### My own addition
+
+
+
 ######################################################################################
 
 

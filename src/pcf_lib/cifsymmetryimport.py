@@ -24,7 +24,6 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 						NumIonNeighbors = 3, CoordinationNumber=None, maxDistance = None):
 	# Step 1: identify the ion in the asymmetric unit cell
 	site = []
-	# print('Asymunitcell', self.asymunitcell)
 	for i,auc in enumerate(self.asymunitcell):
 		if ion in auc[0]:
 			site.append(auc)
@@ -325,7 +324,6 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 		print('    No charges found in cif file... guessing the '+\
 			NNLigandList[0]+' ligands are charged',ligandCharge[0],','+\
 						'\n       and assuming the central ion has a 3+ charge:', centralIon)
-		
 
 
 	## Print the X, Y and Z axes for the user

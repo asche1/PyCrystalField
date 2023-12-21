@@ -137,9 +137,15 @@ for line in open(directory+'RadialIntegrals_TM.txt'):
 def RadialIntegral(ion,n):
     """Returns the radial integral of a rare earth ion plus self-shielding.
     Comes out in units of Bohr radius"""
-    shielding = 1- radialI[ion][int(n/2-1)]
-    return radialI[ion][int(n/2-1) + 3] * shielding
-
+    if ion == 'U4+':
+        U4r = {2:2.042, 4:7.632, 6:47.774}  # from Freeman, Desclaux, Lander, and Faber, PRB (1976), Table I
+        return U4r[n]
+    elif ion == 'U3+':
+        U3r = {2:2.346, 4:10.906, 6:90.544}  # from Freeman, Desclaux, Lander, and Faber, PRB (1976), Table I
+        return U3r[n]
+    else:
+        shielding = 1- radialI[ion][int(n/2-1)]
+        return radialI[ion][int(n/2-1) + 3] * shielding
 
 BohrRadius= 0.5291772109 # Official NIST value in units of /AA
 
@@ -214,6 +220,7 @@ LSThet['Dy3+'] = [-0.0148148148148, -0.0003848003848, 2.46666913334e-05]
 LSThet['Ho3+'] = [-0.0040404040404, -0.000122436486073, -1.12121324243e-05]
 LSThet['Tm3+'] = [0.0148148148148, 0.0003848003848, -2.46666913334e-05]
 LSThet['Pr3+'] = [-0.0148148148148, -0.0003848003848, 2.46666913334e-05]
+LSThet['U4+'] = [-0.0148148148148, -0.0003848003848, 2.46666913334e-05] #same as Pr3+
 LSThet['Er3+'] = [0.0040404040404, 0.000122436486073, 1.12121324243e-05]
 LSThet['Tb3+'] = [-0.0444444444444, 0.0040404040404, -0.001036001036]
 LSThet['Yb3+'] = [0.0444444444444, -0.0040404040404, 0.001036001036]
@@ -229,7 +236,9 @@ def LStheta(ion,n):
 Thet = {}
 Thet['Ce3+'] = [-2./(5*7), 2./(3*3*5*7), 0]
 Thet['Pr3+'] = [-2.*2*13/(3*3*5*5*11), -2.*2/(3*3*5*11*11), 2.**4*17/(3**4*5*7*11**2*13)]
+Thet['U4+'] = [-2.*2*13/(3*3*5*5*11), -2.*2/(3*3*5*11*11), 2.**4*17/(3**4*5*7*11**2*13)] #same as Pr3+
 Thet['Nd3+'] = [-7./(3**2*11**2) , -2.**3*17/(3**3*11**3*13), -5.*17*19/(3**3*7*11**3*13**2)]
+Thet['U3+'] = [-7./(3**2*11**2) , -2.**3*17/(3**3*11**3*13), -5.*17*19/(3**3*7*11**3*13**2)] #same as Nd3+
 Thet['Pm3+'] = [2*7./(3*5*11**2), 2.**3*7*17/(3**3*5*11**3*13), 2.**3*17*19/(3**3*7*11**2*13**2)]
 Thet['Sm3+'] = [13./(3**2*5*7) , 2.*13/(3**3*5*7*11), 0]
 Thet['Tb3+'] = [-1./(3**2*11), 2./(3**3*5*11**2), -1./(3**4*7*11**2*13)]

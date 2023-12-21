@@ -19,6 +19,10 @@ PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrys
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
 
+### Update (December 21, 2023) to version 2.3.9
+
+Fixed bug in printEigenvectors function, added U4+ and U3+ to list of ions available for the point charge model. 
+
 ### Update (March 10, 2023) to version 2.3.8
 
 Fixed bug in importCIF function, can now handle some non-standard CIF files.

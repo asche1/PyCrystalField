@@ -28,7 +28,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-     ' *                PyCrystalField 2.3.8                 *\n' +
+     ' *                PyCrystalField 2.3.9                 *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -84,6 +84,9 @@ Jion['Tm3+'] = [1., 5., 6.]
 Jion['Yb3+'] = [0.5, 3., 3.5]
 # def ionJ(ion):
 #     return Jion[ion]
+## Actinides
+Jion['U4+'] = [1., 5., 4.]
+Jion['U3+'] = [1.5, 6., 4.5]
 
 
 def LandeGFactor(ion):
@@ -588,12 +591,12 @@ class CFLevels:
     def _Re(self,value):
         thresh = 1e-9
         if np.size(value) == 1 & isinstance(value, complex):
-            if value.imag <= thresh:
+            if np.abs(value.imag) <= thresh:
                 return (value.real).astype(float)
             else: 
                 return value
         else:
-            if np.all(value.imag < thresh):
+            if np.all(np.abs(value.imag) < thresh):
                 return (value.real)
             else: return value
 
@@ -1598,6 +1601,40 @@ class LS_CFLevels:
         return np.outer(intensity1D, DWF*FormFactor)
 
 
+    def normalizedNeutronSpectrum(self, Earray, Temp, ResFunc, gamma = 0):
+        '''neutron spectrum without the ki/Kf correction'''
+        try:
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+        except AttributeError:
+            self.diagonalize()
+            eigenkets = self.eigenvectors.real
+            intensity = np.zeros(len(Earray))
+
+        maxtransition = 12 # because we can't see the others
+
+        # make angular momentum ket object
+        eigenkets = [Ket(ei) for ei in self.eigenvectors[:maxtransition]]
+
+        # for population factor weights
+        beta = 1/(8.61733e-2*Temp)  # Boltzmann constant is in meV/K
+        Z = sum([np.exp(-beta*en) for en in self.eigenvalues])
+
+        for i, ket_i in enumerate(eigenkets):
+            # compute population factor
+            pn = np.exp(-beta *self.eigenvalues[i])/Z
+
+            for j, ket_j in enumerate(eigenkets):
+                # compute amplitude
+                mJn = self._transition(ket_i,ket_j)
+                deltaE = self.eigenvalues[j] - self.eigenvalues[i]
+                GausWidth = ResFunc(deltaE)  #peak width due to instrument resolution
+                intensity += ((pn * mJn * self._voigt(x=Earray, x0=deltaE, alpha=GausWidth, 
+                                                    gamma=gamma)).real).astype('float64')
+                #intensity += ((pn * mJn * self._lorentzian(Earray, deltaE, Width)).real).astype('float64')
+        return intensity
+
+
     def _transition(self,ket1,ket2):
         """Computes \sum_a |<|J_a|>|^2 = \sum_a |<|L_a + S_a|>|^2"""
         # ax = np.dot(np.conjugate(ket1.ket),np.dot(self.Jx.O,ket2.ket)) *\
@@ -1639,12 +1676,12 @@ class LS_CFLevels:
     def _Re(self,value):
         thresh = 1e-9
         if np.size(value) == 1 & isinstance(value, complex):
-            if value.imag <= thresh:
+            if np.abs(value.imag) <= thresh:
                 return (value.real).astype(float)
             else: 
                 return value
         else:
-            if np.all(value.imag < thresh):
+            if np.all(np.abs(value.imag) < thresh):
                 return (value.real)
             else: return value
 
@@ -2115,7 +2152,8 @@ from pcf_lib.cif_import import CifFile
 
 def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling = None,
                 crystalImage=False, NumIonNeighbors=1, ForceImaginary=False, 
-                ionL = None, ionS = None, CoordinationNumber = None, MaxDistance=None):
+                ionL = None, ionS = None, CoordinationNumber = None, MaxDistance=None,
+                ):
     '''Call this function to generate a PyCrystalField point charge model
     from a cif file'''
     cif = CifFile(ciffile)
@@ -2220,14 +2258,13 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 # Heat capacity from Victor Porée
 def partition_func(Eis,T):
     # partition function
-    k_b = 8.6173303E-5 # in eV.K-1
+    k_b = 8.6173303E-2 # in meV.K-1
     return np.sum(np.exp(-Eis/(k_b*T)))
 
 def Cp_from_CEF(Eis,T):
-    Eis *= 10**-3 # convertion to eV
     def Cp1T(t):
         R = 8.31432  # in J/K per mol
-        k_b = 8.6173303E-5# in eV.K-1
+        k_b = 8.6173303E-2# in meV.K-1
         beta = k_b * t
         Z = partition_func(Eis, t)
         fs = np.sum( (Eis/beta)**2 * np.exp(-Eis/beta) )

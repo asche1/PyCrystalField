@@ -18,6 +18,9 @@ PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrys
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (October 10, 2024) to version 2.3.10
+
+Fixed rounoff error in ligand locations which caused some CEF parameters to be nonzero when symmetry constrained them to be zero. 
 
 ### Update (December 21, 2023) to version 2.3.9
 

@@ -43,7 +43,7 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 		new_at = self.SymOperate(sy,onesite)
 		if np.all(new_at[2:5] == onesite[2:5]):
 			PGS.append(sy)
-
+	# print('PGS', PGS) 
 
 
 	############### Now, find the nearest neighbors
@@ -146,15 +146,15 @@ def FindPointGroupSymOps(self, ion, Zaxis = None, Yaxis = None, crystalImage = F
 	for pgs in PGS:
 		mat = makeSymOpMatrix(self, pgs)
 		rotmir = findRotationAxis(self, mat)
-		#print(pgs, mat, rotmir)
+		# print(pgs, mat, rotmir)
 		if rotmir[0] == 'rot':
-			RotAngles.append(rotmir[1])
-			RotAxes.append(rotmir[2])
+			if ~np.isnan(rotmir[1]):  # ignore nan values
+				RotAngles.append(rotmir[1])
+				RotAxes.append(rotmir[2])
 		elif rotmir[0] == 'mirr':
 			Mirrors.append(rotmir[1].flatten())
 			inversion = True
 		# elif rotmir[0] == 'inversion': pass
-			
 
 
 	## Step 3a: identify the axes

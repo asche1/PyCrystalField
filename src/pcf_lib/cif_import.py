@@ -39,6 +39,7 @@ class CifFile:
 				bb = self._destringify( line.split()[1])
 			elif line.startswith('_cell_angle_gamma'):
 				cc = self._destringify( line.split()[1])
+				print('unit cell:', a,b,c,aa,bb,cc)
 
 			# Find the atoms within the unit cell
 			#elif (line.startswith("loop_") and lines[i+1].startswith(" _atom_site_label")):
@@ -49,7 +50,7 @@ class CifFile:
 				line = lines[i]
 				
 				jj = 0   # index for keeping track of labels
-				while (line != " \r\n" and line != "\r\n" and line !='\n' 
+				while (line != " \r\n" and line != "\r\n" and line !='\n' and line.strip() != '' 
 						and line !=' \n' and line !='loop_\n' and not line.startswith('#')): #loop until we hit a blank spot
 					if '_atom' in line:
 						sitesymorder = None
@@ -72,6 +73,7 @@ class CifFile:
 					else:
 						if line.startswith('_'): break
 						site = line.split()#[0:9]
+						#print('site', site)
 						modsite = deepcopy(site)
 						if len(modsite) < 3:  # If the line for some reason spills over into the next...
 							i += 1
@@ -113,7 +115,7 @@ class CifFile:
 					i+=1
 					line = lines[i]
 				while (line != " \r\n" and line != "\r\n" and line != "\n" and line != " \n" 
-						and line != 'loop_\n'): #loop until we hit a blank spot
+						and line != 'loop_\n' and line.strip() != ''): #loop until we hit a blank spot
 					if line.startswith('#'):
 						break
 					if '\'' in line:
@@ -345,8 +347,18 @@ class CifFile:
 		"""automatically remove parenthesis from end of strings"""
 		if isinstance(string, str):
 			if '(' in string:
-				return float(string[:string.find("(")])
-			else: return float(string)
+				numb = float(string[:string.find("(")])
+			else: numb = float(string)
+
+			## Replace 0.3333 with 1/3, etc.
+			threshold = 5e-5
+			if np.abs(numb - 1/3) < threshold:
+				numb = 1/3
+			elif np.abs(numb - 2/3) < threshold:
+				numb = 2/3			
+			elif np.abs(numb - 1/6) < threshold:
+				numb = 1/6
+			return numb
 		else:   return string
 
 	def _defractionify(self,string):

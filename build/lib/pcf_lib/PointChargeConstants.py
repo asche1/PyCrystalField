@@ -12,6 +12,8 @@ coef = np.genfromtxt(directory+'TessHarmConsts.txt',delimiter = ',')
 keys=[str(int(c[0]))+','+str(int(c[1])) for c in coef]
 prefac = dict(zip(keys,np.abs(coef[:,2])))
 
+HalfList = ['Cu2+', 'Ni2+', 'Ni3+', 'Co2+', 'Co3+', 'Fe2+', 'Fe3+', 'Mn2+', 'Rh3+','Pd2+', 'Pd3+']
+notHalfList = ['Mn3+','Mn4+','Cr2+','Cr3+','V2+','V3+','Ti2+','Ti3+','Ru3+','Tc4+','Nb3+','W4+','W5+','W6+','Mo4+','V4+','Co6+']
 
 def Constant(n,m):
     '''Returns the constant in front of the tesseral harmonic'''
@@ -157,9 +159,9 @@ def RadialIntegral_TM(ion,n):
 
 def IsHalfFilled(ion):
     '''determine if the ion has a half-filled shell or not.'''
-    if ion in ['Cu2+', 'Ni2+', 'Ni3+', 'Co2+', 'Co3+', 'Fe2+', 'Fe3+', 'Mn2+', 'Rh3+','Pd2+', 'Pd3+']:
+    if ion in HalfList:
         return True
-    elif ion in ['Mn3+','Mn4+','Cr2+','Cr3+','V2+','V3+','Ti2+','Ti3+','Ru3+','Tc4+','Nb3+','W4+','W5+','W6+','Mo4+','V4+','Co6+']:
+    elif ion in notHalfList:
         return False
     else:
         raise ValueError('{} is not a known ion for PyCrystalField.'.format(ion))

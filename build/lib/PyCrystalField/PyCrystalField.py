@@ -1230,12 +1230,12 @@ class LS_Ligands:
 
     def TMPointChargeModel(self, l=2, symequiv=None, LigandCharge= -2, IonCharge=1,
                         printB = True, suppressminusm = False):
-        halffilled = IsHalfFilled(self.ion)
         ''' For transition metals:
         Create point charge model of the crystal fields.
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
-
+        halffilled = IsHalfFilled(self.ion)
+        
         self.IonCharge = IonCharge
         # Lock suppressmm into whatever it was when PointChargeModel was first called.
         try: self.suppressmm

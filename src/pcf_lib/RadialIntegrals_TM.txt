@@ -1,7 +1,6 @@
 # from https://arxiv.org/pdf/cond-mat/0505214.pdf
 # values for 5d ions and others not incl. above calculated using https://data.nist.gov/od/id/6CF509047B474AC9E05324570681DE731930
 # ion, <r^2>, <r^4>, in units of AA^2 and AA^4
-Ion,r^2 (A^2),r^4 (A^4)
 Ti2+,0.699,1.075
 Ti3+,0.538,0.587
 V2+,0.595,0.793

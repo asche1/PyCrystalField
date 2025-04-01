@@ -28,7 +28,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-     ' *                PyCrystalField 2.3.10                *\n' +
+     ' *                PyCrystalField 2.3.10b               *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -41,30 +41,64 @@ JionTM = {}   # [S, L, J]
 
 ### These values are taken from the free ion states at 
 ### https://physics.nist.gov/PhysRefData/Elements/per_noframes.html
-JionTM['Cu2+'] = [1/2, 2.]
-JionTM['Ni2+'] = [1., 3.]
-JionTM['Ni3+'] = [3/2, 3.]
+JionTM['Ag2+'] = [1/2, 2]
+JionTM['Ag3+'] = [1, 3]
+JionTM['Cd3+'] = [1/2, 2]
 JionTM['Co2+'] = [3/2, 3]
 JionTM['Co3+'] = [2,   2]
+JionTM['Co6+'] = [3/2, 3]
+JionTM['Cr2+'] = [2, 2]
+JionTM['Cr3+'] = [3/2, 3]
+JionTM['Cr4+'] = [1, 3]
+JionTM['Cr5+'] = [1/2, 2]
+JionTM['Cu2+'] = [1/2, 2.]
 JionTM['Fe2+'] = [2,   2]
 JionTM['Fe3+'] = [5/2, 0]
+JionTM['Hf2+'] = [1, 3]
+JionTM['Hf3+'] = [1/2, 2]
 JionTM['Mn2+'] = [5/2, 0]
 JionTM['Mn3+'] = [2, 2]
 JionTM['Mn4+'] = [3/2, 3]
-JionTM['Cr2+'] = [2, 2]
-JionTM['Cr3+'] = [3/2, 3]
-JionTM['V2+']  = [3/2, 3]
-JionTM['V3+']  = [1, 3]
-JionTM['Ti2+']  = [1, 3]
-JionTM['Ti3+']  = [1/2, 2]
-
+JionTM['Mn5+'] = [1, 3]
+JionTM['Mn6+'] = [1/2, 2]
+JionTM['Mo2+'] = [2, 2]
+JionTM['Mo3+'] = [3/2, 3]
+JionTM['Mo4+'] = [1, 3]
+JionTM['Mo5+'] = [1/2, 2]
 JionTM['Nb3+'] = [1, 3]
-JionTM['Tc4+'] = [3/2, 3]
-JionTM['Ru3+'] = [5/2, 0]
-JionTM['Rh3+'] = [2, 2]
+JionTM['Ni2+'] = [1., 3.]
+JionTM['Ni3+'] = [3/2, 3.]
 JionTM['Pd2+'] = [1, 3]
 JionTM['Pd3+'] = [3/2, 3]
-
+JionTM['Pd4+'] = [2, 2]
+JionTM['Re3+'] = [2, 2]
+JionTM['Re4+'] = [3/2, 3]
+JionTM['Re6+'] = [1/2, 2]
+JionTM['Rh2+'] = [3/2, 3]
+JionTM['Rh3+'] = [2, 2]
+JionTM['Rh4+'] = [5/2, 0]
+JionTM['Ru2+'] = [2, 2]
+JionTM['Ru3+'] = [5/2, 0]
+JionTM['Ru4+'] = [2, 2]
+JionTM['Ru6+'] = [1, 3]
+JionTM['Ta2+']  = [3/2, 3]
+JionTM['Ta3+']  = [1, 3]
+JionTM['Ta4+']  = [1/2, 2]
+JionTM['Tc4+'] = [3/2, 3]
+JionTM['Ti2+']  = [1, 3]
+JionTM['Ti3+']  = [1/2, 2]
+JionTM['V2+']  = [3/2, 3]
+JionTM['V3+']  = [1, 3]
+JionTM['V4+']  = [1/2, 2]
+JionTM['W2+'] = [2, 2]
+JionTM['W3+'] = [3/2, 3]
+JionTM['W4+'] = [1, 3]
+JionTM['W5+'] = [1/2, 2]
+JionTM['W6+'] = [0, 1]
+JionTM['Y2+']  = [1/2, 2]
+JionTM['Zr+'] = [3/2, 3]
+JionTM['Zr2+'] = [1, 3]
+JionTM['Zr3+'] = [1/2, 2]
 
 
 Jion = {}   # [S, L, J]
@@ -870,51 +904,51 @@ class CFLevels:
         return gg*LandeGFactor(self.ion)
 
 
-    # def gtensor(self, field=0.1, Temp=0.1):
-    #     '''Returns g tensor computed numerically from zeeman splitting'''
-    #     Jx = Operator.Jx(self.J)
-    #     Jy = Operator.Jy(self.J)
-    #     Jz = Operator.Jz(self.J)
+    def gtensorzeeman(self, field=0.1, Temp=0.1):
+         '''Returns g tensor computed numerically from zeeman splitting'''
+         Jx = Operator.Jx(self.J)
+         Jy = Operator.Jy(self.J)
+         Jz = Operator.Jz(self.J)
 
-    #     #print(Jx)
-    #     #print(Jy)
-    #     muB = 5.7883818012e-2  # meV/T
-    #     #mu0 = np.pi*4e-7       # T*m/A
+         #print(Jx)
+         #print(Jy)
+         muB = 5.7883818012e-2  # meV/T
+         #mu0 = np.pi*4e-7       # T*m/A
 
-    #     gg = np.zeros(3)
-    #     #loop through x,y,z
-    #     for i,Field in enumerate([[field,0,0], [0,field,0], [0,0,field]]):
-    #         JdotB = muB*(Field[0]*Jx + Field[1]*Jy + Field[2]*Jz)
+         gg = np.zeros(3)
+         #loop through x,y,z
+         for i,Field in enumerate([[field,0,0], [0,field,0], [0,0,field]]):
+             JdotB = muB*(Field[0]*Jx + Field[1]*Jy + Field[2]*Jz)
 
-    #         # B) Diagonalize full Hamiltonian
-    #         FieldHam = self.H + JdotB.O
-    #         diagonalH = LA.eigh(FieldHam)
+             # B) Diagonalize full Hamiltonian
+             FieldHam = self.H + JdotB.O
+             diagonalH = LA.eigh(FieldHam)
 
-    #         minE = np.amin(diagonalH[0])
-    #         evals = diagonalH[0] - minE
-    #         evecs = diagonalH[1].T
+             minE = np.amin(diagonalH[0])
+             evals = diagonalH[0] - minE
+             evecs = diagonalH[1].T
 
-    #         DeltaZeeman = evals[1]-evals[0]
-    #         print(DeltaZeeman)
+             DeltaZeeman = evals[1]-evals[0]
+             print(DeltaZeeman)
 
-    #         # Now find the expectation value of J
-    #         JexpVals = np.zeros((len(evals),3))
-    #         for ii, ev in enumerate(evecs):
-    #             kev = Ket(ev)
-    #             JexpVals[ii] =[np.real(kev*kev.Jx()),
-    #                           np.real(kev*kev.Jy()),
-    #                           np.real(kev*kev.Jz())]
-    #         k_B = 8.6173303e-2  # meV/K
+             # Now find the expectation value of J
+             JexpVals = np.zeros((len(evals),3))
+             for ii, ev in enumerate(evecs):
+                 kev = Ket(ev)
+                 JexpVals[ii] =[np.real(kev*kev.Jx()),
+                               np.real(kev*kev.Jy()),
+                               np.real(kev*kev.Jz())]
+             k_B = 8.6173303e-2  # meV/K
 
-    #         Zz = np.sum(np.exp(-evals/(k_B*Temp)))
-    #         JexpVal = np.dot(np.exp(-evals/(k_B*Temp)),JexpVals)/Zz
+             Zz = np.sum(np.exp(-evals/(k_B*Temp)))
+             JexpVal = np.dot(np.exp(-evals/(k_B*Temp)),JexpVals)/Zz
 
-    #         expectationJ = JexpVal[i]
+             expectationJ = JexpVal[i]
 
-    #         # calculate g values
-    #         gg[i] = DeltaZeeman/(muB*field*expectationJ)
+             # calculate g values
+             gg[i] = DeltaZeeman/(muB*field*expectationJ)
             
-    #     return gg
+         return gg
 
 
     def fitdata(self, chisqfunc, fitargs, method='Powell', **kwargs):
@@ -1231,7 +1265,7 @@ class LS_Ligands:
         Returns a CFLevels object with the hamiltonian defined.
         Define LigandCharge in units of e.'''
         halffilled = IsHalfFilled(self.ion)
-
+        
         self.IonCharge = IonCharge
         # Lock suppressmm into whatever it was when PointChargeModel was first called.
         try: self.suppressmm
@@ -1992,35 +2026,35 @@ class LS_CFLevels:
                         [np.real(jzg01), np.imag(jzg01), np.abs(jzg00)]])
         return gg
 
-    # def gtensor(self, spinorbitcoupling, halffilled=True):
-    #     '''Returns g tensor computed numerically via perturbation theory'''
+    def gtensorperturb(self, spinorbitcoupling, halffilled=True):
+         '''Returns g tensor computed numerically via perturbation theory'''
 
-    #     g0 = 2.002319
-    #     gtens = np.zeros((3,3)) + np.identity(3)*g0
+         g0 = 2.002319
+         gtens = np.zeros((3,3)) + np.identity(3)*g0
 
-    #     if halffilled: hff = -1
-    #     else:  hff = 1
-    #     zeta = spinorbitcoupling*2*self.S*hff
+         if halffilled: hff = -1
+         else:  hff = 1
+         zeta = spinorbitcoupling*2*self.S*hff
 
-    #     Lx = LSOperator.Lx(self.L, self.S)
-    #     Ly = LSOperator.Ly(self.L, self.S)
-    #     Lz = LSOperator.Lz(self.L, self.S)
+         Lx = LSOperator.Lx(self.L, self.S)
+         Ly = LSOperator.Ly(self.L, self.S)
+         Lz = LSOperator.Lz(self.L, self.S)
 
-    #     ev0 = self.eigenvectors[1]
-    #     EE0 = self.eigenvalues[1]
-    #     for i, Li in enumerate([Lx, Ly, Lz]):
-    #         for j, Lj in enumerate([Lx, Ly, Lz]):
-    #             for k, ev in enumerate(self.eigenvectors):
-    #                 if self.eigenvalues[k] != EE0:
-    #                     jj1 = np.dot(np.conjugate(ev0),np.dot(Li.O,ev))
-    #                     jj2 = np.dot(np.conjugate(ev),np.dot(Lj.O,ev0))
-    #                     #print(jj1*jj2)
-    #                     gtens[i,j] -= 2*zeta*jj1*jj2/(self.eigenvalues[k]-EE0)
-    #                     print(2*zeta*jj1*jj2/(self.eigenvalues[k]-EE0))
-    #                     print(gtens[i,j])
-    #                 else: pass
+         ev0 = self.eigenvectors[1]
+         EE0 = self.eigenvalues[1]
+         for i, Li in enumerate([Lx, Ly, Lz]):
+             for j, Lj in enumerate([Lx, Ly, Lz]):
+                 for k, ev in enumerate(self.eigenvectors):
+                     if self.eigenvalues[k] != EE0:
+                         jj1 = np.dot(np.conjugate(ev0),np.dot(Li.O,ev))
+                         jj2 = np.dot(np.conjugate(ev),np.dot(Lj.O,ev0))
+                         #print(jj1*jj2)
+                         gtens[i,j] -= 2*zeta*jj1*jj2/(self.eigenvalues[k]-EE0)
+                         #print(2*zeta*jj1*jj2/(self.eigenvalues[k]-EE0))
+                         #print(gtens[i,j])
+                     else: pass
 
-    #     return gtens
+         return gtens
 
 
     def fitdata(self, chisqfunc, fitargs, method='Powell', **kwargs):
@@ -2143,7 +2177,13 @@ def StevensToWybourne(ion, Bdict, LS=False):
 #####################################################################################
 #####################################################################################
 
-
+def checkTMexist(ion):
+    if ion not in TMradialI:
+        print(ion,'radial integrals are not known by PyCrystalField.')
+    if ion not in SpOrbCoup:
+        print(ion,'spin orbit coupling constant is not known by PyCrystalField, but can be specified with `LS_Coupling`.')
+    if ion not in HalfList and ion not in notHalfList:
+        print(ion,'shell filling not known by PyCrystalField.')
 
 ### Import cif file (works for rare earths, and some TM ions)
 
@@ -2224,6 +2264,7 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
 
 
         else: # It's not a rare earth!
+            checkTMexist(centralIon)
             if (ionL == None) | (ionS == None):
                 raise TypeError('\tplease specify the ionL and ionS values in the importCIF function for '+ centralIon)
 
@@ -2233,6 +2274,7 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
             else: # Look up SOC in a table
                 print('    No SOC provided, assuming SOC =', np.around(SpOrbCoup[centralIon],2), 'meV for '+
                        centralIon +"\n           (if you'd like to adjust this, use the 'LS_Coupling' command).\n")
+                
                 Lig = LS_Ligands(ion=[centralIon, ionS, ionL], ionPos = [0,0,0], 
                         ligandPos = ligandPositions,  SpinOrbitCoupling=SpOrbCoup[centralIon])
 

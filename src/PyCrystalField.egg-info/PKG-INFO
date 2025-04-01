@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: PyCrystalField
+Version: 2.3.10
+Summary: Code to calculate the crystal field Hamiltonian of magnetic ions.
+Home-page: https://github.com/asche1/PyCrystalField/tree/for_PyPi
+Author: Allen Scheie
+Author-email: scheie@lanl.gov
+License: GNU GPL
+License-File: LICENSE

@@ -18,6 +18,10 @@ PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrys
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (March 21, 2025) to version 2.3.10b
+
+Added many new transition metal ion radial integrals and spin orbit coupling constants. Also added new function `checkTMexist()` used to check if all three parameters required for calculation are known for a given transition metal ion.
+
 ### Update (October 10, 2024) to version 2.3.10
 
 Fixed rounoff error in ligand locations which caused some CEF parameters to be nonzero when symmetry constrained them to be zero. 

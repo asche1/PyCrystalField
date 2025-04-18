@@ -28,7 +28,7 @@ from copy import deepcopy
 
 
 print(' '+'*'*55 + '\n'+
-     ' *                PyCrystalField 2.3.10b               *\n' +
+     ' *                PyCrystalField 2.3.11               *\n' +
     #' *  Code to calculate the crystal Field Hamiltonian    *\n' +
     #' *   of magentic ions.                                 *\n' +
     ' *  Please cite  J. Appl. Cryst. (2021). 54, 356-362   * \n' +
@@ -2244,7 +2244,8 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
     for cf in cifs:
 
         ## Calculate the ligand positions
-        centralIon, ligandPositions, ligandCharge, inv, ligandNames = FindPointGroupSymOps(cf, mag_ion, Zaxis, 
+        centralIon, ligandPositions, ligandCharge, inv, ligandNames, CartM, CentralIonPos = FindPointGroupSymOps(cf, 
+                                                                    mag_ion, Zaxis, 
                                                                     Yaxis, crystalImage,NumIonNeighbors,
                                                                     CoordinationNumber, MaxDistance)
         #print(ligandNames)
@@ -2261,7 +2262,6 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
                 PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = False)
             else:
                 PCM = Lig.PointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
-
 
         else: # It's not a rare earth!
             checkTMexist(centralIon)
@@ -2283,7 +2283,10 @@ def importCIF(ciffile, mag_ion = None, Zaxis = None, Yaxis = None, LS_Coupling =
             else:
                 PCM = Lig.TMPointChargeModel(printB = True, LigandCharge=ligandCharge, suppressminusm = inv)
 
+
+        Lig.LatticeTransformM = CartM ## Transformation from lattice ABC to the axes for the bonds
         Lig.LigandNames = ligandNames
+        Lig.CentralIonPos = CentralIonPos
         output.append([Lig, PCM])
 
     if len(output) == 1:

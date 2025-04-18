@@ -18,6 +18,10 @@ PyCrystalField requires Python 3; downloading Anaconda is recommended, as PyCrys
 
 ## For documentation, see [here](https://github.com/asche1/PyCrystalField/wiki)
 
+### Update (April 18, 2025) to version 2.3.11
+
+Added CFLevels.Lig.LatticeTransformM to the CFLevels object upon importing the .cif file. This matrix transforms from Cartesian space to ABC space.
+
 ### Update (March 21, 2025) to version 2.3.10b
 
 Added many new transition metal ion radial integrals and spin orbit coupling constants. Also added new function `checkTMexist()` used to check if all three parameters required for calculation are known for a given transition metal ion.

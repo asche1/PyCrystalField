@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='PyCrystalField',
-    version='2.3.10',    
+    version='2.3.11',    
     description='Code to calculate the crystal field Hamiltonian of magnetic ions.',
     url='https://github.com/asche1/PyCrystalField/tree/for_PyPi',
     author='Allen Scheie',

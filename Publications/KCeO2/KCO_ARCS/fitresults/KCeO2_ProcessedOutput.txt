@@ -1,0 +1,33 @@
+#### CEF parameters
+$B_{2}^{0}=$  &  $ 5.6 \pm 0.4$ \\
+$B_{4}^{0}=$  &  $ -0.2 \pm 0.005$ \\
+$B_{4}^{3}=$  &  $ 6.2 \pm 0.4$ \\
+
+#### G-tensor
+2.17^{+0.05}_{-0.06} 
+2.17^{+0.05}_{-0.06} 
+0.06^{+0.1}_{-0.06} 
+
+#### best fit Eigenvalues
+\begin{table*}
+\caption{Eigenvectors and Eigenvalues...}
+\begin{ruledtabular}
+\begin{tabular}{c|cccccc}
+E (meV) &$| -\frac{5}{2}\rangle$ & $| -\frac{3}{2}\rangle$ & $| -\frac{1}{2}\rangle$ & $| \frac{1}{2}\rangle$ & $| \frac{3}{2}\rangle$ & $| \frac{5}{2}\rangle$ \tabularnewline
+ \hline 
+0.0 & 0.0 & 0.0 & -0.919(12) & 0.0 & 0.0 & 0.39(3) \tabularnewline
+0.0 & -0.39(3) & 0.0 & 0.0 & -0.919(12) & 0.0 & 0.0 \tabularnewline
+118.8(2) & 0.0 & -1.0 & 0.0 & 0.0 & 0.0 & 0.0 \tabularnewline
+118.8(2) & 0.0 & 0.0 & 0.0 & 0.0 & -1.0 & 0.0 \tabularnewline
+162.8(9) & -0.919(12) & 0.0 & 0.0 & 0.39(3) & 0.0 & 0.0 \tabularnewline
+162.8(9) & 0.0 & 0.0 & -0.39(3) & 0.0 & 0.0 & -0.919(12) \tabularnewline
+\end{tabular}\end{ruledtabular}
+\label{flo:Eigenvectors}
+\end{table*}
+
+#### Ground State Ket
+\psi_0+ = -0.919(12)|-1/2 \rangle + 0.0|3/2 \rangle + 0.39(3)|5/2 \rangle ,  \psi_0- = 0.0|5/2 \rangle + -0.919(12)|1/2 \rangle + -0.39(3)|-5/2 \rangle
+
+#### phonon energy and coupling
+hw =  33.2465077248236 +/- 1.4129765783049884
+B21 coupling =  5.115274066446511 +/- 0.3580691846512525
